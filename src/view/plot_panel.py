@@ -72,7 +72,7 @@ class PlotPanel:
         self.selection_rect = None
         self.start_point = None
 
-    def plot_heatmap(self, x_data, y_data, z_data, x_label, y_label, title=None):
+    def plot_heatmap(self, x_data, y_data, z_data, x_label, y_label, title=None, vmin=None, vmax=None):
         """
         ヒートマップの描画
 
@@ -83,6 +83,8 @@ class PlotPanel:
             x_label (str): X軸のラベル
             y_label (str): Y軸のラベル
             title (str, optional): プロットのタイトル
+            vmin (float, optional): カラーマップの最小値
+            vmax (float, optional): カラーマップの最大値
         """
         self.x_data = x_data
         self.y_data = y_data
@@ -95,13 +97,23 @@ class PlotPanel:
         self.ax = self.figure.add_subplot(111)
 
         # カラーマップの設定
-        norm = LogNorm() if self.log_scale else None
+        if self.log_scale:
+            # 対数スケールの場合、0以下の値を扱えないため、最小値を調整
+            if vmin is not None and vmin <= 0:
+                vmin = z_data[z_data > 0].min() if z_data.size > 0 else 1e-10
+            if vmax is not None and vmax <= 0:
+                vmax = z_data.max()
+            norm = LogNorm(vmin=vmin, vmax=vmax)
+        else:
+            norm = None
 
         # ヒートマップの描画
         im = self.ax.pcolormesh(
             x_data, y_data, z_data,
             cmap=self.colormap,
             norm=norm,
+            vmin=vmin if not self.log_scale else None,
+            vmax=vmax if not self.log_scale else None,
             shading='auto'
         )
 
@@ -136,10 +148,18 @@ class PlotPanel:
         """
         self.colormap = colormap
         if self.z_data is not None:
+            # 現在の値範囲を取得
+            vmin = vmax = None
+            if self.colorbar is not None:
+                vmin = self.colorbar.norm.vmin if hasattr(self.colorbar.norm, 'vmin') else None
+                vmax = self.colorbar.norm.vmax if hasattr(self.colorbar.norm, 'vmax') else None
+
             self.plot_heatmap(
                 self.x_data, self.y_data, self.z_data,
                 self.ax.get_xlabel(), self.ax.get_ylabel(),
-                self.ax.get_title()
+                self.ax.get_title(),
+                vmin=vmin,
+                vmax=vmax
             )
 
     def set_scale(self, log_scale):
@@ -151,10 +171,18 @@ class PlotPanel:
         """
         self.log_scale = log_scale
         if self.z_data is not None:
+            # 現在の値範囲を取得
+            vmin = vmax = None
+            if self.colorbar is not None:
+                vmin = self.colorbar.norm.vmin if hasattr(self.colorbar.norm, 'vmin') else None
+                vmax = self.colorbar.norm.vmax if hasattr(self.colorbar.norm, 'vmax') else None
+
             self.plot_heatmap(
                 self.x_data, self.y_data, self.z_data,
                 self.ax.get_xlabel(), self.ax.get_ylabel(),
-                self.ax.get_title()
+                self.ax.get_title(),
+                vmin=vmin,
+                vmax=vmax
             )
 
     def _on_click(self, event):
