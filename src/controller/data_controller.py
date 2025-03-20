@@ -50,14 +50,14 @@ class DataController:
     def _load_initial_data(self):
         """初期データの読み込み"""
         try:
-            # 最初のチャンクを読み込み
-            chunk, _ = self.app_controller.data_loader.get_chunk(0)
+            # すべてのデータを読み込み
+            df = self.app_controller.data_loader.load_all_data()
 
             # データプロセッサーにデータを設定
-            self.app_controller.data_processor.set_data(chunk)
+            self.app_controller.data_processor.set_data(df)
 
             # データフィルターにデータを設定
-            self.app_controller.data_filter.set_data(chunk)
+            self.app_controller.data_filter.set_data(df)
 
             # 軸の設定
             x_column = self.app_controller.main_window.control_panel.x_column.get()
