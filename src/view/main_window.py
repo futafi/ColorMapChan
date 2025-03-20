@@ -101,7 +101,21 @@ class MainWindow:
         )
         if file_path:
             try:
-                self.controller.load_file(file_path)
+                # ファイル形式の取得
+                file_format = self.control_panel.file_format.get()
+
+                # ファイル形式の変換
+                format_type = None
+                if file_format == "標準CSV":
+                    format_type = "standard"
+                elif file_format == "Sample2形式":
+                    format_type = "sample2"
+                elif file_format == "Sample3形式":
+                    format_type = "sample3"
+                # 自動検出の場合はNoneのまま
+
+                # ファイルの読み込み
+                self.controller.load_file(file_path, format_type)
             except Exception as e:
                 messagebox.showerror("エラー", f"ファイルの読み込みに失敗しました：{str(e)}")
 

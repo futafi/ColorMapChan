@@ -36,6 +36,7 @@ class ControlPanel:
         self.filter_value = tk.DoubleVar()
         self.colormap = tk.StringVar(value="plasma")  # デフォルトのカラーマップ
         self.log_scale = tk.BooleanVar(value=False)   # デフォルトは線形スケール
+        self.file_format = tk.StringVar(value="auto")  # デフォルトは自動検出
 
         # 表示範囲
         self.x_min = tk.DoubleVar()
@@ -56,6 +57,23 @@ class ControlPanel:
         # タイトル
         title_label = ttk.Label(self.frame, text="コントロールパネル", font=("", 12, "bold"))
         title_label.pack(pady=5)
+
+        # 区切り線
+        separator = ttk.Separator(self.frame, orient=tk.HORIZONTAL)
+        separator.pack(fill=tk.X, pady=5)
+
+        # ファイル形式フレーム
+        format_frame = ttk.LabelFrame(self.frame, text="ファイル形式")
+        format_frame.pack(fill=tk.X, pady=5)
+
+        # ファイル形式選択
+        format_select_frame = ttk.Frame(format_frame)
+        format_select_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(format_select_frame, text="形式:").pack(side=tk.LEFT, padx=5)
+        self.format_combo = ttk.Combobox(format_select_frame, textvariable=self.file_format, state="readonly")
+        self.format_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.format_combo["values"] = ("自動検出", "標準CSV", "Sample2形式", "Sample3形式")
+        self.format_combo.current(0)
 
         # 区切り線
         separator = ttk.Separator(self.frame, orient=tk.HORIZONTAL)

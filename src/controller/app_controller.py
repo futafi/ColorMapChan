@@ -6,7 +6,7 @@
 
 from .data_controller import DataController
 from .plot_controller import PlotController
-from ..model.data_loader import DataLoader
+from ..model.data_loader import DataLoaderFactory
 from ..model.data_processor import DataProcessor
 from ..model.data_filter import DataFilter
 
@@ -21,7 +21,7 @@ class AppController:
     def __init__(self):
         """アプリケーションコントローラーの初期化"""
         # モデルの初期化
-        self.data_loader = DataLoader()
+        self.data_loader = None  # ファイル読み込み時に初期化
         self.data_processor = DataProcessor()
         self.data_filter = DataFilter()
 
@@ -48,15 +48,20 @@ class AppController:
         else:
             raise RuntimeError("メインウィンドウが設定されていません。")
 
-    def load_file(self, file_path):
+    def load_file(self, file_path, format_type=None):
         """
         ファイルの読み込み
 
         Args:
             file_path (str): ファイルパス
+            format_type (Optional[str]): ファイル形式（None=自動検出）
         """
-        # データローダーにファイルを設定
-        self.data_loader.set_file(file_path)
+        try:
+            # 適切なデータローダーを作成
+            self.data_loader = DataLoaderFactory.create_data_loader(file_path, format_type)
+        except Exception as e:
+            self.show_error("ファイル読み込みエラー", f"ファイルの読み込みに失敗しました: {str(e)}")
+            raise
 
         # 列情報の取得
         columns = self.data_loader.get_columns()
