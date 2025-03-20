@@ -48,11 +48,72 @@ class ControlPanel:
 
         self._create_widgets()
 
+    def _on_frame_configure(self, event):
+        """
+        フレームサイズが変更されたときの処理
+
+        Args:
+            event: イベント情報
+        """
+        # キャンバスのスクロール領域を更新
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _on_canvas_configure(self, event):
+        """
+        キャンバスサイズが変更されたときの処理
+
+        Args:
+            event: イベント情報
+        """
+        # キャンバス内のフレームの幅を調整
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        """
+        マウスホイール操作時の処理
+
+        Args:
+            event: イベント情報
+        """
+        # マウスホイールの方向に応じてスクロール
+        # Windows: event.delta, macOS: event.num
+        if event.delta:
+            # Windows
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        elif event.num == 4:
+            # Linux: マウスホイール上回転
+            self.canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            # Linux: マウスホイール下回転
+            self.canvas.yview_scroll(1, "units")
+
     def _create_widgets(self):
         """ウィジェットの作成"""
-        # メインフレーム
-        self.frame = ttk.Frame(self.parent)
-        self.frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        # 外側のフレーム
+        self.outer_frame = ttk.Frame(self.parent)
+        self.outer_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # スクロール可能なキャンバスを作成
+        self.canvas = tk.Canvas(self.outer_frame)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # スクロールバーを作成
+        self.scrollbar = ttk.Scrollbar(self.outer_frame, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # キャンバス内のフレーム
+        self.frame = ttk.Frame(self.canvas)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.frame, anchor=tk.NW)
+
+        # フレームサイズが変更されたときにキャンバスのスクロール領域を更新
+        self.frame.bind("<Configure>", self._on_frame_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # マウスホイールでのスクロールを有効化
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)  # Windows
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)    # Linux/macOS
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)    # Linux/macOS
 
         # タイトル
         title_label = ttk.Label(self.frame, text="コントロールパネル", font=("", 12, "bold"))
