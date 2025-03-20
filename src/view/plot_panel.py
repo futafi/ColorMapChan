@@ -39,6 +39,7 @@ class PlotPanel:
         self.z_data = None
         self.colormap = 'plasma'  # デフォルトのカラーマップ
         self.log_scale = False    # デフォルトは線形スケール
+        self.colorbar = None      # カラーバーの参照
 
         self._create_widgets()
 
@@ -87,8 +88,11 @@ class PlotPanel:
         self.y_data = y_data
         self.z_data = z_data
 
-        # 軸のクリア
-        self.ax.clear()
+        # Figureを完全にクリア
+        self.figure.clear()
+
+        # 新しいAxesを作成
+        self.ax = self.figure.add_subplot(111)
 
         # カラーマップの設定
         norm = LogNorm() if self.log_scale else None
@@ -101,8 +105,8 @@ class PlotPanel:
             shading='auto'
         )
 
-        # カラーバーの追加
-        self.figure.colorbar(im, ax=self.ax, label='電流値')
+        # カラーバーの追加と参照の保持
+        self.colorbar = self.figure.colorbar(im, ax=self.ax, label='電流値')
 
         # 軸ラベルの設定
         self.ax.set_xlabel(x_label)
@@ -114,6 +118,11 @@ class PlotPanel:
 
         # グリッドの表示
         self.ax.grid(True, linestyle='--', alpha=0.7)
+
+        # マウスイベントの再設定
+        self.canvas.mpl_connect('button_press_event', self._on_click)
+        self.canvas.mpl_connect('motion_notify_event', self._on_motion)
+        self.canvas.mpl_connect('button_release_event', self._on_release)
 
         # キャンバスの更新
         self.canvas.draw()
