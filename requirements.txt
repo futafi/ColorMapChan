@@ -1,0 +1,12 @@
+# 基本パッケージ
+numpy
+pandas
+matplotlib
+
+# 開発用パッケージ
+pytest
+flake8
+pylint
+
+# ドキュメント用パッケージ
+sphinx
