@@ -41,3 +41,17 @@ jobs:
       with:
         name: ColorMapChan-${{ steps.date.outputs.date }}
         path: dist/ColorMapChan-${{ steps.date.outputs.date }}.exe
+        
+    - name: Create Release and Upload Asset
+      if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.0-${{ steps.date.outputs.date }}
+        name: Release v1.0.0-${{ steps.date.outputs.date }}
+        files: ./dist/ColorMapChan-${{ steps.date.outputs.date }}.exe
+        body: |
+          ColorMapChan Windows実行ファイル
+          
+          ビルド日時: ${{ steps.date.outputs.date }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
