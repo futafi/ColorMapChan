@@ -34,7 +34,7 @@ jobs:
         
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.date.outputs.date }} src/main.py
+        pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.date.outputs.date }} --add-data "icon.ico;." --paths=. src/main.py
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
