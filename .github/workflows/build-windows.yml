@@ -37,7 +37,7 @@ jobs:
         pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.date.outputs.date }} src/main.py
         
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ColorMapChan-${{ steps.date.outputs.date }}
         path: dist/ColorMapChan-${{ steps.date.outputs.date }}.exe
