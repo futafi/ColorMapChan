@@ -127,17 +127,86 @@ class ControlPanel:
         self.filter_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
         self.filter_combo.bind("<<ComboboxSelected>>", self._on_filter_column_change)
 
-        # フィルタ値選択
-        filter_val_frame = ttk.Frame(filter_frame)
-        filter_val_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(filter_val_frame, text="フィルタ値:").pack(side=tk.LEFT, padx=5)
-        self.filter_scale = ttk.Scale(filter_val_frame, variable=self.filter_value, from_=0, to=100, orient=tk.HORIZONTAL)
-        self.filter_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        self.filter_scale.bind("<ButtonRelease-1>", self._on_filter_value_change)
+        # フィルタタイプ選択
+        filter_type_frame = ttk.Frame(filter_frame)
+        filter_type_frame.pack(fill=tk.X, pady=2)
+        self.filter_type = tk.StringVar(value="value")
+        ttk.Radiobutton(filter_type_frame, text="値フィルタ", variable=self.filter_type,
+                        value="value", command=self._on_filter_type_change).pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(filter_type_frame, text="範囲フィルタ", variable=self.filter_type,
+                        value="range", command=self._on_filter_type_change).pack(side=tk.LEFT, padx=5)
 
-        # フィルタ値表示
-        self.filter_value_label = ttk.Label(filter_val_frame, text="0.0")
-        self.filter_value_label.pack(side=tk.LEFT, padx=5)
+        # 値フィルタフレーム
+        self.value_filter_frame = ttk.Frame(filter_frame)
+        self.value_filter_frame.pack(fill=tk.X, pady=2)
+
+        # 値選択用ドロップダウン
+        dropdown_frame = ttk.Frame(self.value_filter_frame)
+        dropdown_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(dropdown_frame, text="値を選択:").pack(side=tk.LEFT, padx=5)
+        self.filter_value_combo = ttk.Combobox(dropdown_frame, state="readonly")
+        self.filter_value_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # 値入力用フィールド
+        entry_frame = ttk.Frame(self.value_filter_frame)
+        entry_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(entry_frame, text="値を入力:").pack(side=tk.LEFT, padx=5)
+        self.filter_value_entry = ttk.Entry(entry_frame)
+        self.filter_value_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # 範囲フィルタフレーム
+        self.range_filter_frame = ttk.Frame(filter_frame)
+        self.range_filter_frame.pack(fill=tk.X, pady=2)
+        self.range_filter_frame.pack_forget()  # 初期状態では非表示
+
+        # 最小値
+        min_frame = ttk.Frame(self.range_filter_frame)
+        min_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(min_frame, text="最小値:").pack(side=tk.LEFT, padx=5)
+        self.filter_min_value = tk.DoubleVar()
+        self.filter_min_entry = ttk.Entry(min_frame, textvariable=self.filter_min_value)
+        self.filter_min_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # 最大値
+        max_frame = ttk.Frame(self.range_filter_frame)
+        max_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(max_frame, text="最大値:").pack(side=tk.LEFT, padx=5)
+        self.filter_max_value = tk.DoubleVar()
+        self.filter_max_entry = ttk.Entry(max_frame, textvariable=self.filter_max_value)
+        self.filter_max_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # フィルタ追加ボタン
+        filter_button_frame = ttk.Frame(filter_frame)
+        filter_button_frame.pack(fill=tk.X, pady=2)
+        self.add_filter_button = ttk.Button(filter_button_frame, text="フィルタを追加", command=self._on_add_filter)
+        self.add_filter_button.pack(fill=tk.X, padx=5, pady=2)
+
+        # 適用中のフィルタリスト
+        filter_list_frame = ttk.LabelFrame(filter_frame, text="適用中のフィルタ")
+        filter_list_frame.pack(fill=tk.X, pady=2)
+
+        # フィルタリストを表示するキャンバスとスクロールバー
+        filter_canvas_frame = ttk.Frame(filter_list_frame)
+        filter_canvas_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        self.filter_canvas = tk.Canvas(filter_canvas_frame, height=100)
+        self.filter_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        filter_scrollbar = ttk.Scrollbar(filter_canvas_frame, orient=tk.VERTICAL, command=self.filter_canvas.yview)
+        filter_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.filter_canvas.configure(yscrollcommand=filter_scrollbar.set)
+
+        # フィルタリストを表示するフレーム
+        self.filter_list_inner_frame = ttk.Frame(self.filter_canvas)
+        self.filter_canvas.create_window((0, 0), window=self.filter_list_inner_frame, anchor=tk.NW)
+        self.filter_list_inner_frame.bind("<Configure>", lambda e: self.filter_canvas.configure(
+            scrollregion=self.filter_canvas.bbox("all")))
+
+        # すべてクリアボタン
+        clear_button_frame = ttk.Frame(filter_frame)
+        clear_button_frame.pack(fill=tk.X, pady=2)
+        self.clear_filters_button = ttk.Button(clear_button_frame, text="すべてクリア", command=self._on_clear_filters)
+        self.clear_filters_button.pack(fill=tk.X, padx=5, pady=2)
 
         # 区切り線
         separator = ttk.Separator(self.frame, orient=tk.HORIZONTAL)
@@ -235,24 +304,43 @@ class ControlPanel:
             self.value_combo.current(2)
             self.filter_combo.current(0)
 
-    def update_filter_values(self, values):
+    def update_filter_values(self, values, is_numeric):
         """
         フィルタ値リストの更新
 
         Args:
             values (list): フィルタ値のリスト
+            is_numeric (bool): 数値列かどうか
         """
         if not values:
             return
 
-        # スケールの範囲を更新
-        min_val = min(values)
-        max_val = max(values)
-        self.filter_scale.configure(from_=min_val, to=max_val)
+        # 数値列かどうかを記録
+        self.is_numeric_column = is_numeric
 
-        # デフォルト値の設定
-        self.filter_value.set(min_val)
-        self.filter_value_label.configure(text=f"{min_val:.6g}")
+        # ドロップダウンの値を更新
+        sorted_values = sorted(values)
+        self.filter_value_combo["values"] = sorted_values
+        if sorted_values:
+            self.filter_value_combo.current(0)
+
+        if is_numeric:
+            # 数値列の場合
+            min_val = min(values)
+            max_val = max(values)
+
+            # 範囲フィルタの初期値を設定
+            self.filter_min_value.set(min_val)
+            self.filter_max_value.set(max_val)
+
+            # 入力フィールドの初期値を設定
+            self.filter_value_entry.delete(0, tk.END)
+            self.filter_value_entry.insert(0, str(min_val))
+        else:
+            # 非数値列の場合は範囲フィルタを無効化
+            if self.filter_type.get() == "range":
+                self.filter_type.set("value")
+                self._on_filter_type_change()
 
     def update_ranges(self, x_range, y_range, value_range):
         """
@@ -320,22 +408,145 @@ class ControlPanel:
         # コントローラーに通知
         self.controller.update_filter_values(self.filter_column.get())
 
-    def _on_filter_value_change(self, event):
+    def _on_filter_type_change(self):
+        """フィルタタイプ変更時の処理"""
+        filter_type = self.filter_type.get()
+
+        if filter_type == "value":
+            # 値フィルタを表示
+            self.value_filter_frame.pack(fill=tk.X, pady=2)
+            self.range_filter_frame.pack_forget()
+        else:
+            # 範囲フィルタを表示（数値列の場合のみ）
+            if hasattr(self, 'is_numeric_column') and self.is_numeric_column:
+                self.value_filter_frame.pack_forget()
+                self.range_filter_frame.pack(fill=tk.X, pady=2)
+            else:
+                # 非数値列の場合は値フィルタに戻す
+                self.filter_type.set("value")
+                messagebox.showwarning("警告", "範囲フィルタは数値列のみ使用できます。")
+                self._on_filter_type_change()
+
+    def _on_add_filter(self):
+        """フィルタ追加時の処理"""
+        column = self.filter_column.get()
+        if not column:
+            messagebox.showwarning("警告", "フィルタ列を選択してください。")
+            return
+
+        filter_type = self.filter_type.get()
+
+        try:
+            if filter_type == "value":
+                # 値フィルタの場合
+                # 入力フィールドとドロップダウンの両方をチェック
+                entry_value = self.filter_value_entry.get().strip()
+                combo_value = self.filter_value_combo.get()
+
+                # 入力フィールドに値がある場合はそちらを優先
+                if entry_value:
+                    if hasattr(self, 'is_numeric_column') and self.is_numeric_column:
+                        try:
+                            value = float(entry_value)
+                        except ValueError:
+                            messagebox.showwarning("警告", "数値を入力してください。")
+                            return
+                    else:
+                        value = entry_value
+                # 入力フィールドが空の場合はドロップダウンの値を使用
+                elif combo_value:
+                    value = combo_value
+                    # 数値列の場合は数値に変換
+                    if hasattr(self, 'is_numeric_column') and self.is_numeric_column:
+                        try:
+                            value = float(value)
+                        except ValueError:
+                            pass  # 変換できない場合はそのまま使用
+                else:
+                    messagebox.showwarning("警告", "フィルタ値を選択または入力してください。")
+                    return
+
+                # コントローラーに通知
+                self.controller.add_value_filter(column, value)
+            else:
+                # 範囲フィルタの場合
+                min_val = self.filter_min_value.get()
+                max_val = self.filter_max_value.get()
+
+                if min_val > max_val:
+                    messagebox.showwarning("警告", "最小値は最大値より小さくしてください。")
+                    return
+
+                # コントローラーに通知
+                self.controller.add_range_filter(column, min_val, max_val)
+
+            # フィルタリストを更新
+            self._update_filter_list()
+
+        except Exception as e:
+            messagebox.showerror("エラー", str(e))
+
+    def _on_clear_filters(self):
+        """すべてのフィルタをクリア"""
+        # コントローラーに通知
+        self.controller.clear_filters()
+
+        # フィルタリストを更新
+        self._update_filter_list()
+
+    def _update_filter_list(self):
+        """フィルタリストの更新"""
+        # 既存のフィルタリストをクリア
+        for widget in self.filter_list_inner_frame.winfo_children():
+            widget.destroy()
+
+        # フィルタ情報を取得
+        filter_summary = self.controller.get_filter_summary()
+
+        # 値フィルタの表示
+        for column, value in filter_summary["value_filters"].items():
+            filter_frame = ttk.Frame(self.filter_list_inner_frame)
+            filter_frame.pack(fill=tk.X, pady=1)
+
+            # フィルタ情報のラベル
+            filter_text = f"{column} = {value}"
+            ttk.Label(filter_frame, text=filter_text).pack(side=tk.LEFT, padx=5)
+
+            # 削除ボタン
+            delete_button = ttk.Button(filter_frame, text="×", width=2,
+                                       command=lambda col=column: self._on_delete_filter(col))
+            delete_button.pack(side=tk.RIGHT, padx=5)
+
+        # 範囲フィルタの表示
+        for column, (min_val, max_val) in filter_summary["range_filters"].items():
+            filter_frame = ttk.Frame(self.filter_list_inner_frame)
+            filter_frame.pack(fill=tk.X, pady=1)
+
+            # フィルタ情報のラベル
+            filter_text = f"{column} = {min_val:.6g}～{max_val:.6g}"
+            ttk.Label(filter_frame, text=filter_text).pack(side=tk.LEFT, padx=5)
+
+            # 削除ボタン
+            delete_button = ttk.Button(filter_frame, text="×", width=2,
+                                       command=lambda col=column: self._on_delete_filter(col))
+            delete_button.pack(side=tk.RIGHT, padx=5)
+
+        # キャンバスの更新
+        self.filter_canvas.update_idletasks()
+        self.filter_canvas.configure(scrollregion=self.filter_canvas.bbox("all"))
+
+    def _on_delete_filter(self, column):
         """
-        フィルタ値変更時の処理
+        フィルタ削除時の処理
 
         Args:
-            event: イベント情報
+            column (str): 削除するフィルタの列名
         """
-        # 値表示の更新
-        value = self.filter_value.get()
-        self.filter_value_label.configure(text=f"{value:.6g}")
-
         # コントローラーに通知
-        self.controller.set_filter(
-            self.filter_column.get(),
-            value
-        )
+        self.controller.clear_filters(column)
+
+        # フィルタリストを更新
+        self._update_filter_list()
 
     def _on_colormap_change(self, event):
         """

@@ -142,8 +142,18 @@ class AppController:
         # 列のユニークな値を取得
         values = self.data_filter.get_unique_values(column)
 
+        # 数値列かどうかを判定
+        is_numeric = False
+        if values:
+            try:
+                # 最初の値が数値に変換できるかチェック
+                float(values[0])
+                is_numeric = True
+            except (ValueError, TypeError):
+                is_numeric = False
+
         # コントロールパネルの更新
-        self.main_window.control_panel.update_filter_values(values)
+        self.main_window.control_panel.update_filter_values(values, is_numeric)
 
     def set_colormap(self, colormap):
         """
@@ -176,6 +186,45 @@ class AppController:
         """
         # プロットコントローラーに範囲を設定
         self.plot_controller.set_ranges(x_range, y_range, value_range)
+
+    def add_value_filter(self, column, value):
+        """
+        値フィルターの追加
+
+        Args:
+            column (str): フィルター対象の列名
+            value: フィルター値
+        """
+        self.data_controller.add_value_filter(column, value)
+
+    def add_range_filter(self, column, min_val, max_val):
+        """
+        範囲フィルターの追加
+
+        Args:
+            column (str): フィルター対象の列名
+            min_val (float): 最小値
+            max_val (float): 最大値
+        """
+        self.data_controller.add_range_filter(column, min_val, max_val)
+
+    def clear_filters(self, column=None):
+        """
+        フィルターのクリア
+
+        Args:
+            column (str, optional): クリアする列名。Noneの場合はすべてクリア。
+        """
+        self.data_controller.clear_filters(column)
+
+    def get_filter_summary(self):
+        """
+        フィルター概要の取得
+
+        Returns:
+            dict: フィルター概要
+        """
+        return self.data_controller.get_filter_summary()
 
     def reset_view(self):
         """表示のリセット"""
