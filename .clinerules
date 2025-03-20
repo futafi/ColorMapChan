@@ -1,0 +1,109 @@
+# Project Rules
+
+- Respond in Japanese.
+- Always create a branch before starting development.
+
+## Tech Stack
+
+### Languages and Frameworks
+
+- Python
+- tkinter
+- matplotlib
+- numpy
+
+### Development Tools
+
+- VSCode: Recommended IDE
+- gh: github cli
+
+## Development Workflow
+
+1. Create an Issue
+   - Define functional requirements in detail
+   - Define acceptance criteria
+   - Consider technical considerations
+   - Use gh command for create issue
+   - Write the same text as the issue to the file with the issue number in the "issue" directory
+
+2. Create a Branch
+   - Create a working branch
+   - you can use gh with issue number
+
+3. Development Work
+   - Write tests
+   - Update documentation
+   - Add text to the issue and issue file at each stage
+
+4. Create a Pull Request
+   - Update issue text file
+   - Create PR
+
+5. Review & Merge
+   - Conduct code review
+   - **Check status of Issue file and memory bank**
+   - Make necessary fixes if needed
+   - Merge if OK
+
+6. Go to First Step
+   - **Check status of Issue file and memory bank**
+   - Go to next development
+
+### Branch Strategy
+1. Main Branches
+   - `main`: Stable version for production
+   - `develop`: Integration branch for development
+
+
+### Commit Message Convention
+```
+type: Summary
+
+Detailed description
+```
+- type:
+  - feat: New feature
+  - fix: Bug fix
+  - docs: Documentation
+  - style: Formatting, etc.
+  - refactor: Refactoring
+  - test: Test-related
+  - chore: Miscellaneous
+
+## Coding Guidelines
+
+You and I are developing together, we need to understand the code's direction while programming.
+
+Therefore, please ask me to review your code in relatively small increments.
+
+You are smart, but you have a tendency to make the code more complicated.
+
+For example, you can request a code review when you have finished making changes to one file. The program does not need to work correctly at this time.
+
+I will review it and give you further instructions.
+
+## Simple task
+
+I understand that you want to deliver the best possible results for your instructions.
+
+However, if you present something that's too advanced or has too many features, it will take many time to review the code. We might also have to discard results that are more advanced than necessary, which is a waste of time and money for both of us.
+
+So, first work within the scope of your instructions.
+
+After that, let us know if there's anything else you want to do or what you think we should do next.
+
+Let's develop advanced features by communicating in this way.
+
+## File reading
+
+You incur a large cost when reading code.
+
+This is not your problem, but the cost of how files are read.
+
+So when you're looking for a file to modify, run a command or search instead of opening the file whenever possible.
+
+## Security
+Do not read or modify the following:
+- `.env` files
+- `memo-.*`
+- Any files containing API keys or credentials
