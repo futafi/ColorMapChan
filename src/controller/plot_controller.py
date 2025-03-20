@@ -64,7 +64,9 @@ class PlotController:
             # プロットの更新
             self.app_controller.main_window.plot_panel.plot_heatmap(
                 x_data, y_data, z_data,
-                x_label, y_label
+                x_label, y_label,
+                vmin=self.value_range[0] if self.value_range else None,
+                vmax=self.value_range[1] if self.value_range else None
             )
 
             # 範囲の設定
