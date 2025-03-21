@@ -78,6 +78,14 @@ class ProfileWindow:
 
     def _setup_mouse_handlers(self):
         """マウスイベントハンドラの設定"""
+        # デフォルトのキーバインドを無効化
+        for canvas in [self.x_canvas, self.y_canvas]:
+            canvas.mpl_disconnect(canvas.manager.key_press_handler_id)
+            # デフォルトのマウスイベントを無効化
+            for event_name in ['button_press_event', 'button_release_event', 'motion_notify_event']:
+                for cid in canvas.callbacks.callbacks[event_name].keys():
+                    canvas.mpl_disconnect(cid)
+
         # X軸断面プロットのイベント
         self.x_canvas.mpl_connect('button_press_event', self._on_press)
         self.x_canvas.mpl_connect('motion_notify_event', self._on_motion)
