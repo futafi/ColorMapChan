@@ -19,19 +19,19 @@
 
 ## Development Workflow
 
-1. Create an Issue
+1. Create an Issue & Issue file
    - Define functional requirements in detail
    - Define acceptance criteria
    - Consider technical considerations
+   - Issue title must be in English and message must be in Japanese
    - Use gh command for create issue
    - Write the same text as the issue to the file with the issue number in the "issue" directory
 
-2. Create a Branch
+2. Create a Branch & switch branch
    - Create a working branch
    - you can use gh with issue number
 
 3. Development Work
-   - Write tests
    - Update documentation
    - Add text to the issue and issue file at each stage
 
