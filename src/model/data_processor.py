@@ -259,6 +259,98 @@ class DataProcessor:
 
         return result
 
+    def get_x_profile(self, y_value: float) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        指定されたY座標でのX軸に沿った断面データを取得します。
+        最も近いY座標の値を使用します。
+
+        Args:
+            y_value (float): Y座標値
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: (X座標の配列, 値の配列)
+        """
+        if self.processed_data is None or len(self.processed_data) == 0:
+            raise ValueError("処理済みデータが存在しません。")
+
+        if self.x_column is None or self.y_column is None or self.value_column is None:
+            raise ValueError("軸と値の列が設定されていません。")
+
+        # キャッシュキーの生成
+        cache_key = self._get_cache_key(f"x_profile_{y_value}")
+
+        # キャッシュにデータがある場合はそれを返す
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        # 最も近いY座標値を持つデータを抽出
+        y_data = self.processed_data[self.y_column].values
+        closest_y_idx = np.abs(y_data - y_value).argmin()
+        closest_y = y_data[closest_y_idx]
+
+        # 該当するY座標のデータを抽出
+        mask = np.isclose(self.processed_data[self.y_column].values, closest_y)
+        profile_data = self.processed_data[mask]
+
+        # X座標でソート
+        profile_data = profile_data.sort_values(by=self.x_column)
+
+        # X座標と値を取得
+        x_coords = profile_data[self.x_column].values
+        values = profile_data[self.value_column].values
+
+        # 結果をキャッシュに保存
+        result = (x_coords, values)
+        self._cache[cache_key] = result
+
+        return result
+
+    def get_y_profile(self, x_value: float) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        指定されたX座標でのY軸に沿った断面データを取得します。
+        最も近いX座標の値を使用します。
+
+        Args:
+            x_value (float): X座標値
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: (Y座標の配列, 値の配列)
+        """
+        if self.processed_data is None or len(self.processed_data) == 0:
+            raise ValueError("処理済みデータが存在しません。")
+
+        if self.x_column is None or self.y_column is None or self.value_column is None:
+            raise ValueError("軸と値の列が設定されていません。")
+
+        # キャッシュキーの生成
+        cache_key = self._get_cache_key(f"y_profile_{x_value}")
+
+        # キャッシュにデータがある場合はそれを返す
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        # 最も近いX座標値を持つデータを抽出
+        x_data = self.processed_data[self.x_column].values
+        closest_x_idx = np.abs(x_data - x_value).argmin()
+        closest_x = x_data[closest_x_idx]
+
+        # 該当するX座標のデータを抽出
+        mask = np.isclose(self.processed_data[self.x_column].values, closest_x)
+        profile_data = self.processed_data[mask]
+
+        # Y座標でソート
+        profile_data = profile_data.sort_values(by=self.y_column)
+
+        # Y座標と値を取得
+        y_coords = profile_data[self.y_column].values
+        values = profile_data[self.value_column].values
+
+        # 結果をキャッシュに保存
+        result = (y_coords, values)
+        self._cache[cache_key] = result
+
+        return result
+
     def get_axis_range(self, axis: str) -> Tuple[float, float]:
         """
         指定された軸の値の範囲を取得します。

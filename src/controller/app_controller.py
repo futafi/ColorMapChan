@@ -155,6 +155,15 @@ class AppController:
         # コントロールパネルの更新
         self.main_window.control_panel.update_filter_values(values, is_numeric)
 
+    def set_profile_mode(self, enabled):
+        """
+        断面表示モードの設定
+
+        Args:
+            enabled (bool): 断面表示モードを有効にする場合はTrue
+        """
+        self.plot_controller.set_profile_mode(enabled)
+
     def set_colormap(self, colormap):
         """
         カラーマップの設定
