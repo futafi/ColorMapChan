@@ -123,7 +123,8 @@ class ProfileWindow:
     def _on_motion(self, event):
         """マウス移動イベント処理"""
         if event.inaxes:
-            if self._zoom_start and self._zoom_rect and event.button == 1:
+            # ズーム処理（左ボタンドラッグ）
+            if self._zoom_start and self._zoom_rect:
                 # 選択範囲の更新
                 x0, y0 = self._zoom_start
                 x1, y1 = event.xdata, event.ydata
@@ -134,7 +135,8 @@ class ProfileWindow:
                 self._zoom_rect.set_height(height)
                 event.canvas.draw_idle()
 
-            elif self._pan_start and event.button == 2:
+            # パン処理（中ボタンドラッグ）
+            elif self._pan_start:
                 # パン処理
                 dx = event.xdata - self._pan_start[0]
                 dy = event.ydata - self._pan_start[1]
@@ -151,7 +153,8 @@ class ProfileWindow:
     def _on_release(self, event):
         """マウスボタン解放イベント処理"""
         if event.inaxes:
-            if self._zoom_start and event.button == 1:
+            # ズーム処理（左ボタンドラッグ）
+            if self._zoom_start:
                 # 選択範囲の確定
                 x0, y0 = self._zoom_start
                 x1, y1 = event.xdata, event.ydata
@@ -163,6 +166,7 @@ class ProfileWindow:
 
                     self._zoom_ax.set_xlim(xmin, xmax)
                     self._zoom_ax.set_ylim(ymin, ymax)
+                    self._zoom_ax.figure.canvas.draw()
 
                 # 選択範囲の削除
                 if self._zoom_rect:
@@ -173,7 +177,8 @@ class ProfileWindow:
                 self._zoom_ax = None
                 event.canvas.draw_idle()
 
-            elif self._pan_start and event.button == 2:
+            # パン終了（中ボタンドラッグ）
+            elif self._pan_start:
                 # パン終了
                 self._pan_start = None
                 self._pan_ax = None
