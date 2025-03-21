@@ -42,7 +42,7 @@ class Sample2DataLoader(BaseDataLoader):
             raise ValueError("ファイルパスが設定されていません。")
 
         try:
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, 'r', encoding='utf-8', errors='replace') as f:
                 raw_data = f.readlines()
                 self.total_rows = len(raw_data)
 
