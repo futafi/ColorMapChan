@@ -45,11 +45,11 @@ class StandardDataLoader(BaseDataLoader):
 
         try:
             # ファイルの行数を取得
-            with open(self.file_path, 'r') as f:
+            with open(self.file_path, 'r', encoding='utf-8', errors='replace') as f:
                 self.total_rows = sum(1 for _ in f)
 
             # ヘッダー情報の解析
-            chunk = pd.read_csv(self.file_path, nrows=1)
+            chunk = pd.read_csv(self.file_path, nrows=1, encoding='utf-8', errors='replace')
             self.columns = list(chunk.columns)
             self.data_columns = [col for col in self.columns]
 
@@ -79,7 +79,9 @@ class StandardDataLoader(BaseDataLoader):
             chunk = pd.read_csv(
                 self.file_path,
                 skiprows=range(1, start + 1) if start > 0 else None,
-                nrows=chunk_size
+                nrows=chunk_size,
+                encoding='utf-8',
+                errors='replace'
             )
 
             # 最後のチャンクかどうかを判定
@@ -104,7 +106,7 @@ class StandardDataLoader(BaseDataLoader):
             logger.info(f"ファイル '{self.file_path}' の全データを読み込みます。")
 
             # 一度にすべてのデータを読み込む
-            df = pd.read_csv(self.file_path)
+            df = pd.read_csv(self.file_path, encoding='utf-8', errors='replace')
 
             logger.info(f"全データを読み込みました: {len(df)}行, {len(df.columns)}列")
             return df

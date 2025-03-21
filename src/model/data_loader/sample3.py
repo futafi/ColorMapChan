@@ -60,7 +60,7 @@ class Sample3DataLoader(BaseDataLoader):
     def _read_file(self) -> None:
         """ファイルを読み込む"""
         try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, 'r', encoding='utf-8', errors='replace') as f:
                 self.raw_data = f.readlines()
                 self.total_rows = len(self.raw_data)
             logger.info(f"ファイル '{self.file_path}' を読み込みました。行数: {self.total_rows}")
