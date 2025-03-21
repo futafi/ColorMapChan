@@ -293,6 +293,18 @@ class ControlPanel:
         self.log_check = ttk.Checkbutton(scale_frame, text="対数スケール", variable=self.log_scale, command=self._on_scale_change)
         self.log_check.pack(side=tk.LEFT, padx=5)
 
+        # 断面表示ボタン
+        profile_frame = ttk.Frame(display_frame)
+        profile_frame.pack(fill=tk.X, pady=2)
+        self.profile_mode = tk.BooleanVar(value=False)
+        self.profile_button = ttk.Checkbutton(
+            profile_frame,
+            text="断面表示モード",
+            variable=self.profile_mode,
+            command=self._on_profile_mode_change
+        )
+        self.profile_button.pack(side=tk.LEFT, padx=5)
+
         # 区切り線
         separator = ttk.Separator(self.frame, orient=tk.HORIZONTAL)
         separator.pack(fill=tk.X, pady=5)
@@ -653,7 +665,20 @@ class ControlPanel:
         except ValueError as e:
             messagebox.showerror("エラー", str(e))
 
+    def _on_profile_mode_change(self):
+        """断面表示モード変更時の処理"""
+        enabled = self.profile_mode.get()
+        self.controller.set_profile_mode(enabled)
+        if enabled:
+            self.controller.update_status("断面表示モード: ON - ヒートマップ上でクリックすると断面を表示します")
+        else:
+            self.controller.update_status("断面表示モード: OFF")
+
     def _on_reset(self):
         """リセット時の処理"""
+        # 断面表示モードをOFFにする
+        self.profile_mode.set(False)
+        self._on_profile_mode_change()
+
         # コントローラーに通知
         self.controller.reset_view()

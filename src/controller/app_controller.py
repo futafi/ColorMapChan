@@ -155,6 +155,24 @@ class AppController:
         # コントロールパネルの更新
         self.main_window.control_panel.update_filter_values(values, is_numeric)
 
+    def set_profile_mode(self, enabled):
+        """
+        断面表示モードの設定
+
+        Args:
+            enabled (bool): 断面表示モードを有効にする場合はTrue
+        """
+        self.plot_controller.set_profile_mode(enabled)
+        
+    def show_profiles(self, click_point):
+        """
+        クリックした点での断面プロットを表示します。
+
+        Args:
+            click_point (tuple): クリックした点の座標 (x, y)
+        """
+        self.plot_controller.show_profiles(click_point)
+
     def set_colormap(self, colormap):
         """
         カラーマップの設定

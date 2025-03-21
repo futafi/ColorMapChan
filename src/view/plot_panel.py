@@ -40,6 +40,7 @@ class PlotPanel:
         self.colormap = 'plasma'  # デフォルトのカラーマップ
         self.log_scale = False    # デフォルトは線形スケール
         self.colorbar = None      # カラーバーの参照
+        self.profile_mode = False # 断面表示モード
 
         self._create_widgets()
 
@@ -139,6 +140,21 @@ class PlotPanel:
         # キャンバスの更新
         self.canvas.draw()
 
+    def set_profile_mode(self, enabled):
+        """
+        断面表示モードの設定
+
+        Args:
+            enabled (bool): 断面表示モードを有効にする場合はTrue
+        """
+        self.profile_mode = enabled
+
+        # カーソルの変更
+        if enabled:
+            self.canvas.get_tk_widget().config(cursor="crosshair")
+        else:
+            self.canvas.get_tk_widget().config(cursor="")
+
     def set_colormap(self, colormap):
         """
         カラーマップの設定
@@ -195,8 +211,15 @@ class PlotPanel:
         if event.inaxes != self.ax:
             return
 
-        # 左クリックの場合は選択開始
-        if event.button == 1:
+        # 断面表示モードの場合
+        if self.profile_mode:
+            if event.button == 1:  # 左クリックの場合
+                click_point = (event.xdata, event.ydata)
+                self.controller.show_profiles(click_point)
+            return
+
+        # 通常モードの場合
+        if event.button == 1:  # 左クリックの場合は選択開始
             self.start_point = (event.xdata, event.ydata)
 
             # 既存の選択領域があれば削除
