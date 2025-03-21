@@ -4,6 +4,8 @@
 プロット操作の制御を担当します。
 """
 
+from src.view.profile_window import ProfileWindow
+
 
 class PlotController:
     """
