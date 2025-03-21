@@ -164,9 +164,9 @@ class ProfileWindow:
                     xmin, xmax = min(x0, x1), max(x0, x1)
                     ymin, ymax = min(y0, y1), max(y0, y1)
 
+                    # 表示範囲の更新
                     self._zoom_ax.set_xlim(xmin, xmax)
                     self._zoom_ax.set_ylim(ymin, ymax)
-                    self._zoom_ax.figure.canvas.draw()
 
                 # 選択範囲の削除
                 if self._zoom_rect:
@@ -175,7 +175,9 @@ class ProfileWindow:
 
                 self._zoom_start = None
                 self._zoom_ax = None
-                event.canvas.draw_idle()
+
+                # 描画の更新（一本化）
+                event.canvas.draw()
 
             # パン終了（中ボタンドラッグ）
             elif self._pan_start:
