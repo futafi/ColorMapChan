@@ -163,7 +163,7 @@ class AppController:
             enabled (bool): 断面表示モードを有効にする場合はTrue
         """
         self.plot_controller.set_profile_mode(enabled)
-        
+
     def show_profiles(self, click_point):
         """
         クリックした点での断面プロットを表示します。
@@ -315,3 +315,13 @@ class AppController:
         """
         if self.main_window:
             self.main_window.show_info(title, message)
+
+    def update_plot_ranges(self, x_range, y_range):
+        """
+        プロット範囲の更新（matplotlibのズーム・パン操作後に呼ばれる）
+
+        Args:
+            x_range (tuple): X軸の範囲 (min, max)
+            y_range (tuple): Y軸の範囲 (min, max)
+        """
+        self.plot_controller.update_plot_ranges(x_range, y_range)
