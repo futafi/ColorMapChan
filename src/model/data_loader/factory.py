@@ -62,35 +62,53 @@ class DataLoaderFactory:
     @staticmethod
     def _detect_and_create(file_path: str) -> BaseDataLoader:
         """
-        ファイル内容を分析して適切なローダーを作成
+        各形式を順に試して適切なローダーを作成
 
         Args:
             file_path (str): CSVファイルのパス
 
         Returns:
             BaseDataLoader: 適切なデータローダーのインスタンス
+
+        Raises:
+            ValueError: すべての形式で読み込みに失敗した場合
         """
+        errors = []
+
+        # Sample2形式を試す
         try:
-            # ファイルの先頭部分を読み込む
-            with open(file_path, 'r', encoding='utf-8') as f:
-                header_lines = [f.readline() for _ in range(20)]  # 先頭20行を読み込む
-
-            # Sample2形式の特徴を検出
-            if any(line.startswith('DataName') for line in header_lines):
-                logger.info(f"ファイル '{file_path}' はSample2形式と判定されました")
-                return Sample2DataLoader(file_path)
-
-            # Sample3形式の特徴を検出
-            if any(line.startswith('AutoAnalysis.Marker.Data.StartCondition') for line in header_lines):
-                logger.info(f"ファイル '{file_path}' はSample3形式と判定されました")
-                return Sample3DataLoader(file_path)
-
-            # 上記に該当しない場合は標準CSV形式と判断
-            logger.info(f"ファイル '{file_path}' は標準CSV形式と判定されました")
-            return StandardDataLoader(file_path)
-
+            loader = Sample2DataLoader(file_path)
+            # 読み込みテスト
+            loader.get_columns()  # 読み込みが成功したかテスト
+            logger.info(f"ファイル '{file_path}' はSample2形式として読み込みました")
+            return loader
         except Exception as e:
-            logger.error(f"ファイル形式の検出中にエラーが発生しました: {str(e)}")
-            # エラーが発生した場合は標準形式を試す
-            logger.info("標準CSV形式として読み込みを試みます")
-            return StandardDataLoader(file_path)
+            errors.append(f"Sample2形式として読み込み失敗: {str(e)}")
+            logger.debug(f"Sample2形式として読み込み失敗: {str(e)}")
+
+        # Sample3形式を試す
+        try:
+            loader = Sample3DataLoader(file_path)
+            # 読み込みテスト
+            loader.get_columns()
+            logger.info(f"ファイル '{file_path}' はSample3形式として読み込みました")
+            return loader
+        except Exception as e:
+            errors.append(f"Sample3形式として読み込み失敗: {str(e)}")
+            logger.debug(f"Sample3形式として読み込み失敗: {str(e)}")
+
+        # 標準形式を試す
+        try:
+            loader = StandardDataLoader(file_path)
+            # 読み込みテスト
+            loader.get_columns()
+            logger.info(f"ファイル '{file_path}' は標準CSV形式として読み込みました")
+            return loader
+        except Exception as e:
+            errors.append(f"標準CSV形式として読み込み失敗: {str(e)}")
+            logger.debug(f"標準CSV形式として読み込み失敗: {str(e)}")
+
+        # すべての形式で失敗した場合
+        error_msg = f"ファイル '{file_path}' はすべての形式で読み込みに失敗しました:\n" + "\n".join(errors)
+        logger.error(error_msg)
+        raise ValueError(error_msg)
