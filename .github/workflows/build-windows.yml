@@ -38,13 +38,6 @@ jobs:
         echo "version=${date}.${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
       shell: bash
 
-    - name: Get PR info
-      if: github.event_name == 'pull_request'
-      run: |
-        echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-        echo "pr_body=${{ github.event.pull_request.body }}" >> $GITHUB_ENV
-      shell: bash
-        
     - name: Build with PyInstaller
       run: |
         pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.version.outputs.version }} --add-data "icon.ico;." --paths=. src/main.py
@@ -70,8 +63,8 @@ jobs:
           - ビルド日時: ${{ steps.version.outputs.date }}
           
           ## 変更内容
-          ${{ env.pr_title }}
+          ${{ github.event.pull_request.title }}
           
-          ${{ env.pr_body }}
+          ${{ github.event.pull_request.body }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
