@@ -81,47 +81,27 @@ class PlotController:
         except Exception as e:
             self.app_controller.show_error("プロット更新エラー", str(e))
 
-    def zoom_to_selection(self, x_min, x_max, y_min, y_max):
+    def update_plot_ranges(self, x_range, y_range):
         """
-        選択領域へのズーム
+        プロット範囲の更新（matplotlibのズーム・パン操作後に呼ばれる）
 
         Args:
-            x_min (float): X軸の最小値
-            x_max (float): X軸の最大値
-            y_min (float): Y軸の最小値
-            y_max (float): Y軸の最大値
+            x_range (tuple): X軸の範囲 (min, max)
+            y_range (tuple): Y軸の範囲 (min, max)
         """
-        self.x_range = (x_min, x_max)
-        self.y_range = (y_min, y_max)
+        self.x_range = x_range
+        self.y_range = y_range
 
-        # プロットの更新
-        self._update_plot()
+        # コントロールパネルの表示を更新
+        if hasattr(self.app_controller.main_window, 'control_panel'):
+            self.app_controller.main_window.control_panel.update_ranges(
+                x_range, y_range, self.value_range
+            )
 
         # ステータスバーの更新
         self.app_controller.update_status(
-            f"選択領域にズーム: X={x_min:.6g}～{x_max:.6g}, Y={y_min:.6g}～{y_max:.6g}"
+            f"表示範囲: X={x_range[0]:.6g}～{x_range[1]:.6g}, Y={y_range[0]:.6g}～{y_range[1]:.6g}"
         )
-
-    def pan(self, dx, dy):
-        """
-        プロットのパン（移動）
-
-        Args:
-            dx (float): X軸方向の移動量
-            dy (float): Y軸方向の移動量
-        """
-        if not self.x_range or not self.y_range:
-            return
-
-        x_min, x_max = self.x_range
-        y_min, y_max = self.y_range
-
-        # 範囲の更新
-        self.x_range = (x_min + dx, x_max + dx)
-        self.y_range = (y_min + dy, y_max + dy)
-
-        # プロットの更新
-        self._update_plot()
 
     def set_profile_mode(self, enabled):
         """

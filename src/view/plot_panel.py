@@ -40,7 +40,7 @@ class PlotPanel:
         self.colormap = 'plasma'  # デフォルトのカラーマップ
         self.log_scale = False    # デフォルトは線形スケール
         self.colorbar = None      # カラーバーの参照
-        self.profile_mode = False # 断面表示モード
+        self.profile_mode = False  # 断面表示モード
 
         self._create_widgets()
 
@@ -65,13 +65,9 @@ class PlotPanel:
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         # マウスイベントの設定
-        self.canvas.mpl_connect('button_press_event', self._on_click)
         self.canvas.mpl_connect('motion_notify_event', self._on_motion)
-        self.canvas.mpl_connect('button_release_event', self._on_release)
-
-        # 選択領域の初期化
-        self.selection_rect = None
-        self.start_point = None
+        self.canvas.mpl_connect('button_press_event', self._on_click)
+        self.canvas.mpl_connect('draw_event', self._on_draw)
 
     def plot_heatmap(self, x_data, y_data, z_data, x_label, y_label, title=None, vmin=None, vmax=None):
         """
@@ -135,7 +131,7 @@ class PlotPanel:
         # マウスイベントの再設定
         self.canvas.mpl_connect('button_press_event', self._on_click)
         self.canvas.mpl_connect('motion_notify_event', self._on_motion)
-        self.canvas.mpl_connect('button_release_event', self._on_release)
+        self.canvas.mpl_connect('draw_event', self._on_draw)
 
         # キャンバスの更新
         self.canvas.draw()
@@ -201,6 +197,21 @@ class PlotPanel:
                 vmax=vmax
             )
 
+    def _on_draw(self, event):
+        """
+        描画イベント時の処理（ズームやパン後に呼ばれる）
+
+        Args:
+            event: イベント情報
+        """
+        # 現在の表示範囲を取得
+        if self.ax:
+            x_min, x_max = self.ax.get_xlim()
+            y_min, y_max = self.ax.get_ylim()
+
+            # コントローラーに通知
+            self.controller.update_plot_ranges((x_min, x_max), (y_min, y_max))
+
     def _on_click(self, event):
         """
         マウスクリック時の処理
@@ -218,29 +229,8 @@ class PlotPanel:
                 self.controller.show_profiles(click_point)
             return
 
-        # 通常モードの場合
-        if event.button == 1:  # 左クリックの場合は選択開始
-            self.start_point = (event.xdata, event.ydata)
-
-            # 既存の選択領域があれば削除
-            if self.selection_rect:
-                self.selection_rect.remove()
-                self.selection_rect = None
-
-            # 新しい選択領域の作成
-            self.selection_rect = matplotlib.patches.Rectangle(
-                (event.xdata, event.ydata),
-                0, 0,
-                linewidth=1,
-                edgecolor='r',
-                facecolor='none',
-                linestyle='--'
-            )
-            self.ax.add_patch(self.selection_rect)
-            self.canvas.draw()
-
         # 右クリックの場合はリセット
-        elif event.button == 3:
+        if event.button == 3:
             self.controller.reset_view()
 
     def _on_motion(self, event):
@@ -263,46 +253,3 @@ class PlotPanel:
                 value = self.z_data[y_idx, x_idx]
                 status_text = f"X: {event.xdata:.6g}, Y: {event.ydata:.6g}, 値: {value:.6g}"
                 self.controller.update_status(status_text)
-
-        # 選択領域の更新
-        if self.start_point and self.selection_rect:
-            x0, y0 = self.start_point
-            width = event.xdata - x0
-            height = event.ydata - y0
-
-            self.selection_rect.set_width(width)
-            self.selection_rect.set_height(height)
-            self.canvas.draw()
-
-    def _on_release(self, event):
-        """
-        マウスボタン解放時の処理
-
-        Args:
-            event: マウスイベント
-        """
-        if event.inaxes != self.ax or not self.start_point:
-            return
-
-        # 選択領域の確定
-        x0, y0 = self.start_point
-        x1, y1 = event.xdata, event.ydata
-
-        # 選択領域のサイズが十分であれば拡大
-        if abs(x1 - x0) > 0.01 and abs(y1 - y0) > 0.01:
-            # X軸の範囲を設定
-            xmin, xmax = min(x0, x1), max(x0, x1)
-            # Y軸の範囲を設定
-            ymin, ymax = min(y0, y1), max(y0, y1)
-
-            # 選択領域に拡大
-            self.ax.set_xlim(xmin, xmax)
-            self.ax.set_ylim(ymin, ymax)
-            self.canvas.draw()
-
-        # 選択領域のリセット
-        self.start_point = None
-        if self.selection_rect:
-            self.selection_rect.remove()
-            self.selection_rect = None
-            self.canvas.draw()
