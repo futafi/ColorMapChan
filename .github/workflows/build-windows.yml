@@ -30,31 +30,48 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
         
-    - name: Get current date
-      id: date
-      run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+    - name: Generate version
+      id: version
+      run: |
+        date=$(date +'%Y%m%d')
+        echo "date=${date}" >> $GITHUB_OUTPUT
+        echo "version=${date}.${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Get PR info
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+        echo "pr_body=${{ github.event.pull_request.body }}" >> $GITHUB_ENV
       shell: bash
         
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.date.outputs.date }} --add-data "icon.ico;." --paths=. src/main.py
+        pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.version.outputs.version }} --add-data "icon.ico;." --paths=. src/main.py
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ColorMapChan-${{ steps.date.outputs.date }}
-        path: dist/ColorMapChan-${{ steps.date.outputs.date }}.exe
+        name: ColorMapChan-${{ steps.version.outputs.version }}
+        path: dist/ColorMapChan-${{ steps.version.outputs.version }}.exe
         
     - name: Create Release and Upload Asset
       if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v1.0.0-${{ steps.date.outputs.date }}
-        name: Release v1.0.0-${{ steps.date.outputs.date }}
-        files: ./dist/ColorMapChan-${{ steps.date.outputs.date }}.exe
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release v${{ steps.version.outputs.version }}
+        files: ./dist/ColorMapChan-${{ steps.version.outputs.version }}.exe
         body: |
           ColorMapChan Windows実行ファイル
           
-          ビルド日時: ${{ steps.date.outputs.date }}
+          ## ビルド情報
+          - バージョン: v${{ steps.version.outputs.version }}
+          - ビルド日時: ${{ steps.version.outputs.date }}
+          
+          ## 変更内容
+          ${{ env.pr_title }}
+          
+          ${{ env.pr_body }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
