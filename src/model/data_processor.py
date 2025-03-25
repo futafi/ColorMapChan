@@ -351,6 +351,128 @@ class DataProcessor:
 
         return result
 
+    def set_3d_axes(self, x_column: str, y_column: str, z_column: str, color_column: str = None) -> None:
+        """
+        3D表示用の軸とカラー値の列を設定します。
+
+        Args:
+            x_column (str): X軸に表示する列名
+            y_column (str): Y軸に表示する列名
+            z_column (str): Z軸（高さ）に表示する列名
+            color_column (str, optional): カラー値として表示する列名（省略時はz_columnと同じ）
+        """
+        if self.data is None:
+            raise ValueError("データが設定されていません。")
+
+        # 列の存在チェック
+        for col, label in [(x_column, "X軸"), (y_column, "Y軸"), (z_column, "Z軸")]:
+            if col not in self.data.columns:
+                raise ValueError(f"{label}の列 '{col}' がデータに存在しません。")
+
+        # カラー列が指定されている場合はチェック
+        if color_column and color_column not in self.data.columns:
+            raise ValueError(f"カラー値の列 '{color_column}' がデータに存在しません。")
+
+        # 軸が変更された場合はキャッシュを無効化
+        if (hasattr(self, 'z_column') and self.z_column != z_column) or \
+           (hasattr(self, 'color_column') and self.color_column != color_column):
+            self._invalidate_cache()
+
+        # 3D表示用の列を設定
+        self.z_column = z_column
+        self.color_column = color_column if color_column else z_column
+
+        # 2D表示用の列も更新（X軸とY軸は共通）
+        self.set_axes(x_column, y_column, self.color_column)
+
+    def get_3d_plot_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        3Dプロット表示用のデータを取得します。
+        NumPyのベクトル化処理とキャッシュを使用して高速化しています。
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: (X軸の値, Y軸の値, Z軸の値, カラー値)
+        """
+        if self.processed_data is None or len(self.processed_data) == 0:
+            raise ValueError("処理済みデータが存在しません。")
+
+        if not hasattr(self, 'z_column') or not hasattr(self, 'color_column'):
+            raise ValueError("3D表示用の軸が設定されていません。")
+
+        # キャッシュキーの生成
+        cache_key = self._get_cache_key("3d_plot")
+
+        # キャッシュにデータがある場合はそれを返す
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        # ユニークなX軸、Y軸の値を取得（ソート済み）
+        x_values = np.array(sorted(self.processed_data[self.x_column].unique()))
+        y_values = np.array(sorted(self.processed_data[self.y_column].unique()))
+
+        # メッシュグリッドの作成
+        X, Y = np.meshgrid(x_values, y_values)
+
+        # Z値とカラー値の初期化（NaNで埋める）
+        Z = np.full(X.shape, np.nan)
+        C = np.full(X.shape, np.nan)
+
+        # データポイントをマッピング（ベクトル化処理）
+        x_data = self.processed_data[self.x_column].values
+        y_data = self.processed_data[self.y_column].values
+        z_data = self.processed_data[self.z_column].values
+        c_data = self.processed_data[self.color_column].values
+
+        # x値とy値のインデックスを高速に検索するための辞書を作成
+        x_indices = {val: i for i, val in enumerate(x_values)}
+        y_indices = {val: i for i, val in enumerate(y_values)}
+
+        # 各データポイントのインデックスを取得
+        x_idx = np.array([x_indices.get(x, -1) for x in x_data])
+        y_idx = np.array([y_indices.get(y, -1) for y in y_data])
+
+        # 有効なインデックスのみを使用してZ値とカラー値を設定
+        valid_indices = (x_idx >= 0) & (y_idx >= 0)
+        Z[y_idx[valid_indices], x_idx[valid_indices]] = z_data[valid_indices]
+        C[y_idx[valid_indices], x_idx[valid_indices]] = c_data[valid_indices]
+
+        # 結果をキャッシュに保存
+        result = (X, Y, Z, C)
+        self._cache[cache_key] = result
+
+        return result
+
+    def _downsample_data(self, x_data: np.ndarray, y_data: np.ndarray, z_data: np.ndarray, c_data: np.ndarray, max_points: int = 10000) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        大規模データセットを間引きして表示を最適化します。
+
+        Args:
+            x_data (np.ndarray): X軸のデータ
+            y_data (np.ndarray): Y軸のデータ
+            z_data (np.ndarray): Z軸のデータ
+            c_data (np.ndarray): カラー値のデータ
+            max_points (int): 最大表示ポイント数
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: 間引き後のデータ
+        """
+        total_points = x_data.size
+        
+        # データポイント数が上限を超える場合は間引き
+        if total_points > max_points:
+            # 間引き率の計算
+            downsample_rate = int(np.ceil(total_points / max_points))
+            
+            # データの間引き
+            x_downsampled = x_data[::downsample_rate, ::downsample_rate]
+            y_downsampled = y_data[::downsample_rate, ::downsample_rate]
+            z_downsampled = z_data[::downsample_rate, ::downsample_rate]
+            c_downsampled = c_data[::downsample_rate, ::downsample_rate]
+            
+            return x_downsampled, y_downsampled, z_downsampled, c_downsampled
+        
+        return x_data, y_data, z_data, c_data
+
     def get_axis_range(self, axis: str) -> Tuple[float, float]:
         """
         指定された軸の値の範囲を取得します。

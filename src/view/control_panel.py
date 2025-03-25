@@ -273,6 +273,75 @@ class ControlPanel:
         separator = ttk.Separator(self.frame, orient=tk.HORIZONTAL)
         separator.pack(fill=tk.X, pady=5)
 
+        # 表示モードフレーム
+        display_mode_frame = ttk.LabelFrame(self.frame, text="表示モード")
+        display_mode_frame.pack(fill=tk.X, pady=5)
+
+        # 表示モード選択
+        self.display_mode = tk.StringVar(value="2d")
+        ttk.Radiobutton(display_mode_frame, text="2Dヒートマップ", variable=self.display_mode,
+                       value="2d", command=self._on_display_mode_change).pack(anchor=tk.W, padx=5, pady=2)
+        ttk.Radiobutton(display_mode_frame, text="3Dサーフェスプロット", variable=self.display_mode,
+                       value="3d", command=self._on_display_mode_change).pack(anchor=tk.W, padx=5, pady=2)
+
+        # 3D表示用の軸設定フレーム
+        self.axis_3d_frame = ttk.LabelFrame(self.frame, text="3D軸設定")
+        self.axis_3d_frame.pack(fill=tk.X, pady=5)
+        self.axis_3d_frame.pack_forget()  # 初期状態では非表示
+
+        # Z軸選択
+        self.z_column = tk.StringVar()
+        z_frame = ttk.Frame(self.axis_3d_frame)
+        z_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(z_frame, text="Z軸:").pack(side=tk.LEFT, padx=5)
+        self.z_combo = ttk.Combobox(z_frame, textvariable=self.z_column, state="readonly")
+        self.z_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.z_combo.bind("<<ComboboxSelected>>", self._on_3d_axis_change)
+
+        # カラー値選択
+        self.color_column = tk.StringVar()
+        color_frame = ttk.Frame(self.axis_3d_frame)
+        color_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(color_frame, text="カラー:").pack(side=tk.LEFT, padx=5)
+        self.color_combo = ttk.Combobox(color_frame, textvariable=self.color_column, state="readonly")
+        self.color_combo.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        self.color_combo.bind("<<ComboboxSelected>>", self._on_3d_axis_change)
+
+        # 3D表示オプションフレーム
+        self.display_3d_options_frame = ttk.LabelFrame(self.frame, text="3D表示オプション")
+        self.display_3d_options_frame.pack(fill=tk.X, pady=5)
+        self.display_3d_options_frame.pack_forget()  # 初期状態では非表示
+
+        # ワイヤーフレーム表示
+        self.wireframe = tk.BooleanVar(value=False)
+        wireframe_check = ttk.Checkbutton(self.display_3d_options_frame, text="ワイヤーフレーム表示",
+                                        variable=self.wireframe, command=self._on_wireframe_change)
+        wireframe_check.pack(anchor=tk.W, padx=5, pady=2)
+
+        # 視点角度設定
+        view_frame = ttk.Frame(self.display_3d_options_frame)
+        view_frame.pack(fill=tk.X, pady=2)
+
+        # 仰角
+        elev_frame = ttk.Frame(view_frame)
+        elev_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(elev_frame, text="仰角:").pack(side=tk.LEFT, padx=5)
+        self.elevation = tk.DoubleVar(value=30.0)
+        elev_scale = ttk.Scale(elev_frame, from_=0, to=90, variable=self.elevation,
+                             orient=tk.HORIZONTAL, command=self._on_view_angle_change)
+        elev_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(elev_frame, textvariable=self.elevation).pack(side=tk.LEFT, padx=5)
+
+        # 方位角
+        azim_frame = ttk.Frame(view_frame)
+        azim_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(azim_frame, text="方位角:").pack(side=tk.LEFT, padx=5)
+        self.azimuth = tk.DoubleVar(value=-60.0)
+        azim_scale = ttk.Scale(azim_frame, from_=-180, to=180, variable=self.azimuth,
+                             orient=tk.HORIZONTAL, command=self._on_view_angle_change)
+        azim_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        ttk.Label(azim_frame, textvariable=self.azimuth).pack(side=tk.LEFT, padx=5)
+
         # 表示オプションフレーム
         display_frame = ttk.LabelFrame(self.frame, text="表示オプション")
         display_frame.pack(fill=tk.X, pady=5)
@@ -674,11 +743,80 @@ class ControlPanel:
         else:
             self.controller.update_status("断面表示モード: OFF")
 
+    def _on_display_mode_change(self):
+        """表示モード変更時の処理"""
+        mode = self.display_mode.get()
+        
+        # 2Dモードと3Dモードで表示するフレームを切り替え
+        if mode == "2d":
+            self.axis_3d_frame.pack_forget()
+            self.display_3d_options_frame.pack_forget()
+        else:  # 3dモード
+            self.axis_3d_frame.pack(after=self.axis_frame)
+            self.display_3d_options_frame.pack(after=self.display_frame)
+        
+        # コントローラーに通知
+        self.controller.set_plot_mode(mode)
+
+    def _on_3d_axis_change(self, event):
+        """3D軸変更時の処理"""
+        # コントローラーに通知
+        self.controller.set_3d_axes(
+            self.x_column.get(),
+            self.y_column.get(),
+            self.z_column.get(),
+            self.color_column.get()
+        )
+
+    def _on_wireframe_change(self):
+        """ワイヤーフレーム表示変更時の処理"""
+        # コントローラーに通知
+        self.controller.set_wireframe(self.wireframe.get())
+
+    def _on_view_angle_change(self, event=None):
+        """視点角度変更時の処理"""
+        # コントローラーに通知
+        self.controller.set_view_angle(self.elevation.get(), self.azimuth.get())
+
     def _on_reset(self):
         """リセット時の処理"""
         # 断面表示モードをOFFにする
         self.profile_mode.set(False)
         self._on_profile_mode_change()
 
+        # 3D表示モードをリセット
+        if self.display_mode.get() == "3d":
+            self.elevation.set(30.0)
+            self.azimuth.set(-60.0)
+            self.wireframe.set(False)
+            self._on_view_angle_change()
+            self._on_wireframe_change()
+
         # コントローラーに通知
         self.controller.reset_view()
+
+    def update_columns(self, columns):
+        """
+        列リストの更新
+
+        Args:
+            columns (list): 列名のリスト
+        """
+        self.columns = columns
+
+        # コンボボックスの更新
+        self.x_combo["values"] = columns
+        self.y_combo["values"] = columns
+        self.value_combo["values"] = columns
+        self.filter_combo["values"] = columns
+        self.z_combo["values"] = columns
+        self.color_combo["values"] = columns
+
+        # デフォルト値の設定
+        if len(columns) >= 3:
+            self.x_combo.current(0)
+            self.y_combo.current(1)
+            self.value_combo.current(2)
+            self.filter_combo.current(0)
+            self.z_combo.current(2)
+            self.color_combo.current(2)

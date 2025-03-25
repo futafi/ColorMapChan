@@ -28,6 +28,65 @@ class PlotController:
         self.y_range = None
         self.value_range = None
         self.profile_window = None  # 断面プロットウィンドウの参照
+        self.plot_mode = "2d"      # 表示モード（'2d'または'3d'）
+
+    def set_plot_mode(self, mode):
+        """
+        表示モードの設定
+
+        Args:
+            mode (str): 表示モード（'2d'または'3d'）
+        """
+        # メインウィンドウの表示モードを切り替え
+        self.app_controller.main_window.set_plot_mode(mode)
+        
+        # 現在のモードを記録
+        self.plot_mode = mode
+        
+        # プロットの更新
+        self._update_plot()
+
+    def set_3d_axes(self, x_column, y_column, z_column, color_column=None):
+        """
+        3D表示用の軸とカラー値の設定
+
+        Args:
+            x_column (str): X軸に表示する列名
+            y_column (str): Y軸に表示する列名
+            z_column (str): Z軸（高さ）に表示する列名
+            color_column (str, optional): カラー値として表示する列名
+        """
+        try:
+            # データプロセッサーに3D軸を設定
+            self.app_controller.data_processor.set_3d_axes(
+                x_column, y_column, z_column, color_column
+            )
+            
+            # プロットの更新
+            self._update_plot()
+        except Exception as e:
+            self.app_controller.show_error("軸設定エラー", str(e))
+
+    def set_wireframe(self, wireframe):
+        """
+        ワイヤーフレーム表示の設定
+
+        Args:
+            wireframe (bool): ワイヤーフレーム表示の場合はTrue
+        """
+        # 3Dプロットパネルにワイヤーフレーム設定を適用
+        self.app_controller.main_window.plot_3d_panel.set_wireframe(wireframe)
+
+    def set_view_angle(self, elevation, azimuth):
+        """
+        視点角度の設定
+
+        Args:
+            elevation (float): 仰角（度）
+            azimuth (float): 方位角（度）
+        """
+        # 3Dプロットパネルに視点角度を設定
+        self.app_controller.main_window.plot_3d_panel.set_view_angle(elevation, azimuth)
 
     def set_ranges(self, x_range, y_range, value_range):
         """
@@ -56,6 +115,14 @@ class PlotController:
 
     def _update_plot(self):
         """プロットの更新"""
+        # 現在の表示モードに応じてプロットを更新
+        if self.plot_mode == "3d":
+            self._update_3d_plot()
+        else:
+            self._update_2d_plot()
+
+    def _update_2d_plot(self):
+        """2Dプロットの更新"""
         # データプロセッサーからデータを取得
         try:
             x_data, y_data, z_data = self.app_controller.data_processor.get_heatmap_data()
@@ -79,7 +146,28 @@ class PlotController:
                 self.app_controller.main_window.plot_panel.canvas.draw()
 
         except Exception as e:
-            self.app_controller.show_error("プロット更新エラー", str(e))
+            self.app_controller.show_error("2Dプロット更新エラー", str(e))
+
+    def _update_3d_plot(self):
+        """3Dプロットの更新"""
+        # データプロセッサーからデータを取得
+        try:
+            x_data, y_data, z_data, c_data = self.app_controller.data_processor.get_3d_plot_data()
+
+            # 軸ラベルの取得
+            x_label = self.app_controller.main_window.control_panel.x_column.get()
+            y_label = self.app_controller.main_window.control_panel.y_column.get()
+            z_label = self.app_controller.main_window.control_panel.z_column.get()
+            c_label = self.app_controller.main_window.control_panel.color_column.get()
+
+            # プロットの更新
+            self.app_controller.main_window.plot_3d_panel.plot_3d_surface(
+                x_data, y_data, z_data, c_data,
+                x_label, y_label, z_label, c_label
+            )
+
+        except Exception as e:
+            self.app_controller.show_error("3Dプロット更新エラー", str(e))
 
     def update_plot_ranges(self, x_range, y_range):
         """
