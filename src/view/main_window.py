@@ -7,6 +7,7 @@
 from .status_bar import StatusBar
 from .control_panel import ControlPanel
 from .plot_panel import PlotPanel
+from .plot_3d_panel import Plot3DPanel
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import matplotlib
@@ -87,7 +88,23 @@ class MainWindow:
         # 各コンポーネントの作成
         self.control_panel = ControlPanel(self.control_frame, self.controller)
         self.plot_panel = PlotPanel(self.plot_frame, self.controller)
+        self.plot_3d_panel = Plot3DPanel(self.plot_frame, self.controller)
+        self.plot_3d_panel.frame.pack_forget()  # 初期状態では非表示
         self.status_bar = StatusBar(self.status_frame)
+
+    def set_plot_mode(self, mode):
+        """
+        表示モードの設定
+
+        Args:
+            mode (str): 表示モード（'2d'または'3d'）
+        """
+        if mode == "2d":
+            self.plot_3d_panel.frame.pack_forget()
+            self.plot_panel.frame.pack(fill=tk.BOTH, expand=True)
+        else:  # 3dモード
+            self.plot_panel.frame.pack_forget()
+            self.plot_3d_panel.frame.pack(fill=tk.BOTH, expand=True)
 
     def run(self):
         """アプリケーションの実行"""

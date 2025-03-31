@@ -182,6 +182,8 @@ class AppController:
         """
         # プロットパネルにカラーマップを設定
         self.main_window.plot_panel.set_colormap(colormap)
+        if hasattr(self.main_window, 'plot_3d_panel'):
+            self.main_window.plot_3d_panel.set_colormap(colormap)
 
     def set_scale(self, log_scale):
         """
@@ -255,21 +257,85 @@ class AppController:
         # ステータスバーの更新
         self.update_status("表示をリセットしました。")
 
+    def set_plot_mode(self, mode):
+        """
+        表示モードの設定
+
+        Args:
+            mode (str): 表示モード（'2d'または'3d'）
+        """
+        # プロットコントローラーに通知
+        self.plot_controller.set_plot_mode(mode)
+
+    def set_3d_axes(self, x_column, y_column, z_column, color_column=None):
+        """
+        3D表示用の軸とカラー値の設定
+
+        Args:
+            x_column (str): X軸に表示する列名
+            y_column (str): Y軸に表示する列名
+            z_column (str): Z軸（高さ）に表示する列名
+            color_column (str, optional): カラー値として表示する列名
+        """
+        # プロットコントローラーに通知
+        self.plot_controller.set_3d_axes(x_column, y_column, z_column, color_column)
+
+    def set_wireframe(self, wireframe):
+        """
+        ワイヤーフレーム表示の設定
+
+        Args:
+            wireframe (bool): ワイヤーフレーム表示の場合はTrue
+        """
+        # プロットコントローラーに通知
+        self.plot_controller.set_wireframe(wireframe)
+
+    def set_view_angle(self, elevation, azimuth):
+        """
+        視点角度の設定
+
+        Args:
+            elevation (float): 仰角（度）
+            azimuth (float): 方位角（度）
+        """
+        # プロットコントローラーに通知
+        self.plot_controller.set_view_angle(elevation, azimuth)
+
     def _update_plot(self):
         """プロットの更新"""
-        # ヒートマップデータの取得
         try:
-            x_data, y_data, z_data = self.data_processor.get_heatmap_data()
+            # 現在の表示モードを取得
+            plot_mode = self.plot_controller.plot_mode
 
-            # 軸ラベルの取得
-            x_label = self.main_window.control_panel.x_column.get()
-            y_label = self.main_window.control_panel.y_column.get()
+            if plot_mode == "3d":
+                # 3Dプロットの更新
+                # 3D表示用のデータを取得
+                x_data, y_data, z_data, c_data = self.data_processor.get_3d_plot_data()
 
-            # プロットの更新
-            self.main_window.plot_panel.plot_heatmap(
-                x_data, y_data, z_data,
-                x_label, y_label
-            )
+                # 軸ラベルの取得
+                x_label = self.main_window.control_panel.x_column.get()
+                y_label = self.main_window.control_panel.y_column.get()
+                z_label = self.main_window.control_panel.z_column.get()
+                c_label = self.main_window.control_panel.color_column.get()
+
+                # 3Dプロットの更新
+                self.main_window.plot_3d_panel.plot_3d_surface(
+                    x_data, y_data, z_data, c_data,
+                    x_label, y_label, z_label, c_label
+                )
+            else:
+                # 2Dプロットの更新
+                x_data, y_data, z_data = self.data_processor.get_heatmap_data()
+
+                # 軸ラベルの取得
+                x_label = self.main_window.control_panel.x_column.get()
+                y_label = self.main_window.control_panel.y_column.get()
+
+                # プロットの更新
+                self.main_window.plot_panel.plot_heatmap(
+                    x_data, y_data, z_data,
+                    x_label, y_label
+                )
 
             # 範囲の取得
             x_range = self.data_processor.get_axis_range('x')
