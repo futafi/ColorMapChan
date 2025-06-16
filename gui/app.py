@@ -36,6 +36,15 @@ class ColorMapApp:
         self.coord_var = tk.StringVar(value="Ready")
         self.current_axes = None
         
+        # Range setting variables
+        self.x_min_var = tk.StringVar()
+        self.x_max_var = tk.StringVar()
+        self.y_min_var = tk.StringVar()
+        self.y_max_var = tk.StringVar()
+        self.z_min_var = tk.StringVar()
+        self.z_max_var = tk.StringVar()
+        self.auto_range_var = tk.BooleanVar(value=True)
+        
         # Setup GUI
         self.setup_gui()
         
@@ -96,6 +105,56 @@ class ColorMapApp:
             command=self.create_plot
         ).grid(row=0, column=8)
         
+        # Range setting controls
+        range_frame = ttk.LabelFrame(control_frame, text="Range Settings", padding=10)
+        range_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Auto range checkbox
+        auto_check = ttk.Checkbutton(
+            range_frame,
+            text="Auto Range",
+            variable=self.auto_range_var,
+            command=self.on_auto_range_toggle
+        )
+        auto_check.grid(row=0, column=0, columnspan=2, sticky=tk.W, padx=(0, 20))
+        
+        # X Range
+        ttk.Label(range_frame, text="X Range:").grid(row=0, column=2, padx=(0, 5))
+        ttk.Label(range_frame, text="Min:").grid(row=0, column=3, padx=(5, 2))
+        x_min_entry = ttk.Entry(range_frame, textvariable=self.x_min_var, width=8)
+        x_min_entry.grid(row=0, column=4, padx=(0, 5))
+        ttk.Label(range_frame, text="Max:").grid(row=0, column=5, padx=(5, 2))
+        x_max_entry = ttk.Entry(range_frame, textvariable=self.x_max_var, width=8)
+        x_max_entry.grid(row=0, column=6, padx=(0, 15))
+        
+        # Y Range
+        ttk.Label(range_frame, text="Y Range:").grid(row=0, column=7, padx=(0, 5))
+        ttk.Label(range_frame, text="Min:").grid(row=0, column=8, padx=(5, 2))
+        y_min_entry = ttk.Entry(range_frame, textvariable=self.y_min_var, width=8)
+        y_min_entry.grid(row=0, column=9, padx=(0, 5))
+        ttk.Label(range_frame, text="Max:").grid(row=0, column=10, padx=(5, 2))
+        y_max_entry = ttk.Entry(range_frame, textvariable=self.y_max_var, width=8)
+        y_max_entry.grid(row=0, column=11, padx=(0, 15))
+        
+        # Color Range
+        ttk.Label(range_frame, text="Color Range:").grid(row=1, column=2, padx=(0, 5), pady=(5, 0))
+        ttk.Label(range_frame, text="Min:").grid(row=1, column=3, padx=(5, 2), pady=(5, 0))
+        z_min_entry = ttk.Entry(range_frame, textvariable=self.z_min_var, width=8)
+        z_min_entry.grid(row=1, column=4, padx=(0, 5), pady=(5, 0))
+        ttk.Label(range_frame, text="Max:").grid(row=1, column=5, padx=(5, 2), pady=(5, 0))
+        z_max_entry = ttk.Entry(range_frame, textvariable=self.z_max_var, width=8)
+        z_max_entry.grid(row=1, column=6, padx=(0, 15), pady=(5, 0))
+        
+        # Apply Range button
+        ttk.Button(
+            range_frame,
+            text="Apply Range",
+            command=self.apply_manual_range
+        ).grid(row=1, column=7, columnspan=2, padx=(10, 0), pady=(5, 0))
+        
+        # Store entry widgets for enabling/disabling
+        self.range_entries = [x_min_entry, x_max_entry, y_min_entry, y_max_entry, z_min_entry, z_max_entry]
+        
         # Plot area
         plot_frame = ttk.LabelFrame(main_frame, text="Plot", padding=5)
         plot_frame.pack(fill=tk.BOTH, expand=True)
@@ -116,6 +175,9 @@ class ColorMapApp:
         ttk.Label(status_frame, text="Coordinates:").pack(side=tk.LEFT, padx=(5, 0))
         coord_label = ttk.Label(status_frame, textvariable=self.coord_var, relief=tk.SUNKEN)
         coord_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
+        
+        # Initialize range entries state (disabled by default since auto range is on)
+        self.on_auto_range_toggle()
         
     def load_file(self):
         """Load CSV file"""
@@ -147,6 +209,9 @@ class ColorMapApp:
                     self.x_var.set(columns[0])
                     self.y_var.set(columns[1])
                     self.z_var.set(columns[2])
+                    
+                    # Set initial range values based on data
+                    self.update_range_suggestions()
                 
                 messagebox.showinfo(
                     "Success", 
@@ -262,6 +327,116 @@ class ColorMapApp:
         else:
             # Mouse is outside the plot area
             self.coord_var.set("Ready")
+    
+    def on_auto_range_toggle(self):
+        """Handle auto range checkbox toggle"""
+        is_auto = self.auto_range_var.get()
+        
+        # Enable/disable range entry widgets
+        state = 'disabled' if is_auto else 'normal'
+        for entry in self.range_entries:
+            entry.config(state=state)
+        
+        # If switching to auto, clear manual values and replot
+        if is_auto:
+            self.x_min_var.set("")
+            self.x_max_var.set("")
+            self.y_min_var.set("")
+            self.y_max_var.set("")
+            self.z_min_var.set("")
+            self.z_max_var.set("")
+            
+            # Replot with auto range if plot exists
+            if self.current_axes is not None:
+                self.create_plot()
+    
+    def apply_manual_range(self):
+        """Apply manual range settings to the current plot"""
+        if self.current_axes is None:
+            messagebox.showwarning("Warning", "Please create a plot first")
+            return
+        
+        if self.auto_range_var.get():
+            messagebox.showinfo("Info", "Auto Range is enabled. Disable it to set manual ranges.")
+            return
+        
+        try:
+            # Get current axis limits as defaults
+            current_xlim = self.current_axes.get_xlim()
+            current_ylim = self.current_axes.get_ylim()
+            
+            # Parse range values, use current limits as fallback
+            x_min = float(self.x_min_var.get()) if self.x_min_var.get() else current_xlim[0]
+            x_max = float(self.x_max_var.get()) if self.x_max_var.get() else current_xlim[1]
+            y_min = float(self.y_min_var.get()) if self.y_min_var.get() else current_ylim[0]
+            y_max = float(self.y_max_var.get()) if self.y_max_var.get() else current_ylim[1]
+            
+            # Validate ranges
+            if x_min >= x_max:
+                messagebox.showerror("Error", "X minimum must be less than X maximum")
+                return
+            if y_min >= y_max:
+                messagebox.showerror("Error", "Y minimum must be less than Y maximum")
+                return
+            
+            # Apply X and Y ranges
+            self.current_axes.set_xlim(x_min, x_max)
+            self.current_axes.set_ylim(y_min, y_max)
+            
+            # Handle color range if specified
+            z_min_str = self.z_min_var.get()
+            z_max_str = self.z_max_var.get()
+            
+            if z_min_str or z_max_str:
+                # Get current colorbar limits
+                images = self.current_axes.get_images()
+                if images:
+                    current_clim = images[0].get_clim()
+                    z_min = float(z_min_str) if z_min_str else current_clim[0]
+                    z_max = float(z_max_str) if z_max_str else current_clim[1]
+                    
+                    if z_min >= z_max:
+                        messagebox.showerror("Error", "Color minimum must be less than Color maximum")
+                        return
+                    
+                    images[0].set_clim(z_min, z_max)
+            
+            # Refresh the plot
+            self.canvas.draw()
+            
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid range values. Please enter numeric values.\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to apply range settings:\n{str(e)}")
+    
+    def update_range_suggestions(self):
+        """Update range entry placeholders with data-based suggestions"""
+        if self.data_loader.get_data() is None:
+            return
+        
+        try:
+            data = self.data_loader.get_data()
+            x_col = self.x_var.get()
+            y_col = self.y_var.get()
+            z_col = self.z_var.get()
+            
+            if all([x_col, y_col, z_col]) and all(col in data.columns for col in [x_col, y_col, z_col]):
+                # Calculate data ranges
+                x_min, x_max = data[x_col].min(), data[x_col].max()
+                y_min, y_max = data[y_col].min(), data[y_col].max()
+                z_min, z_max = data[z_col].min(), data[z_col].max()
+                
+                # Set placeholder values (not actual values, just for reference)
+                # Only update if auto range is enabled and fields are empty
+                if self.auto_range_var.get():
+                    self.x_min_var.set(f"{x_min:.3g}")
+                    self.x_max_var.set(f"{x_max:.3g}")
+                    self.y_min_var.set(f"{y_min:.3g}")
+                    self.y_max_var.set(f"{y_max:.3g}")
+                    self.z_min_var.set(f"{z_min:.3g}")
+                    self.z_max_var.set(f"{z_max:.3g}")
+        except Exception:
+            pass  # Silently fail if range calculation fails
 
 
 def run_gui():
