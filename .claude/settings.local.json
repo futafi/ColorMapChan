@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(pytest:*)",
+      "Bash(python -m pytest tests/test_data_loader.py -v)",
+      "Bash(python:*)",
+      "Bash(flake8:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": []
+  }
+}

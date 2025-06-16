@@ -22,6 +22,7 @@
 - [ ] tkinter基本ウィンドウ＋matplotlib埋め込み
 
 ### 1.5 GitHub Actions設定
+- [ ] .github/workflows/build-windows.yml の不足点をチェック．消去
 - [ ] .github/workflows/test.yml - pytest実行
 - [ ] .github/workflows/build.yml - PyInstaller自動ビルド
 - [ ] Windows exe成果物の自動リリース

@@ -42,7 +42,7 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.version.outputs.version }} --add-data "icon.ico;." --paths=. src/main.py
+        pyinstaller --onefile --windowed --icon=icon.ico --name=ColorMapChan-${{ steps.version.outputs.version }} --add-data "icon.ico;." --paths=. main.py
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
