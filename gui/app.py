@@ -113,11 +113,15 @@ class ColorMapApp:
         
         if filename:
             try:
-                # Load data using PlainCSV loader
-                self.data_loader.load_plain_csv(filename)
+                # Load data using auto-detection
+                self.data_loader.load_auto(filename)
                 
-                # Update file label
-                self.file_label.config(text=f"Loaded: {filename}")
+                # Get file info
+                info = self.data_loader.get_info()
+                format_type = info.get('format_type', 'unknown')
+                
+                # Update file label with format info
+                self.file_label.config(text=f"Loaded: {filename} ({format_type})")
                 
                 # Update column combo boxes
                 columns = self.data_loader.get_columns()
@@ -131,7 +135,12 @@ class ColorMapApp:
                     self.y_var.set(columns[1])
                     self.z_var.set(columns[2])
                 
-                messagebox.showinfo("Success", f"Loaded {len(self.data_loader.get_data())} rows")
+                messagebox.showinfo(
+                    "Success", 
+                    f"Loaded {len(self.data_loader.get_data())} rows\n"
+                    f"Format: {format_type}\n"
+                    f"Columns: {len(columns)}"
+                )
                 
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load file:\n{str(e)}")

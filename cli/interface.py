@@ -23,17 +23,28 @@ def run_cli(file_path=None):
         return
     
     try:
-        # Load data
+        # Load data using auto-detection
         loader = DataLoader()
         print(f"Loading file: {file_path}")
-        data = loader.load_plain_csv(file_path)
+        data = loader.load_auto(file_path)
         
         # Display basic info
         info = loader.get_info()
         print(f"\nFile loaded successfully!")
+        print(f"Format detected: {info.get('format_type', 'unknown')}")
         print(f"Rows: {info['rows']}")
         print(f"Columns: {info['columns']}")
         print(f"Column names: {', '.join(info['column_names'])}")
+        
+        # Display metadata if available
+        metadata = loader.get_metadata()
+        if metadata:
+            print(f"\nMetadata available: {len(metadata)} entries")
+            # Show a few key metadata entries
+            key_metadata = ['SetupTitle', 'PrimitiveTest', 'Setup title', 'Classic test name']
+            for key in key_metadata:
+                if key in metadata:
+                    print(f"  {key}: {metadata[key]}")
         
         # Display data types
         print(f"\nData types:")
