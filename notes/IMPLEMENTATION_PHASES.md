@@ -4,33 +4,33 @@
 **目標**: 即座にテスト可能なexe生成とCI/CD環境構築
 
 ### 1.1 最小限プロジェクト構造
-- [ ] main.py作成（GUI/CLI切り替え対応）
-- [ ] requirements.txt整備
-- [ ] .gitignore設定
-- [ ] プロジェクト基本ディレクトリ構造作成
+- [x] main.py作成（GUI/CLI切り替え対応）
+- [x] requirements.txt整備
+- [x] .gitignore設定
+- [x] プロジェクト基本ディレクトリ構造作成
 
 ### 1.2 最小限データローダー
-- [ ] core/data_loader.py - PlainCSV形式のみ対応
-- [ ] test_data/test_plain_csv.csvを使用した読み込み動作確認
+- [x] core/data_loader.py - PlainCSV形式のみ対応
+- [x] test_data/test_plain_csv.csvを使用した読み込み動作確認
 
 ### 1.3 最小限プロッター
-- [ ] core/plotter.py - 基本的な2Dヒートマップ出力のみ
-- [ ] matplotlib基本設定（日本語対応不要）
+- [x] core/plotter.py - 基本的な2Dヒートマップ出力のみ
+- [x] matplotlib基本設定（日本語対応不要）
 
 ### 1.4 最小限GUI
-- [ ] gui/app.py - ファイル選択とプロット表示のみ
-- [ ] tkinter基本ウィンドウ＋matplotlib埋め込み
+- [x] gui/app.py - ファイル選択とプロット表示のみ
+- [x] tkinter基本ウィンドウ＋matplotlib埋め込み
 
 ### 1.5 GitHub Actions設定
-- [ ] .github/workflows/build-windows.yml の不足点をチェック．消去
-- [ ] .github/workflows/test.yml - pytest実行
-- [ ] .github/workflows/build.yml - PyInstaller自動ビルド
-- [ ] Windows exe成果物の自動リリース
+- [x] .github/workflows/build-windows.yml の不足点をチェック．消去
+- [x] .github/workflows/test.yml - pytest実行
+- [x] .github/workflows/build.yml - PyInstaller自動ビルド
+- [x] Windows exe成果物の自動リリース
 
 ### 1.6 基本テスト
-- [ ] tests/test_data_loader.py - PlainCSV読み込みテスト
-- [ ] pytest実行確認
-- [ ] CI/CD動作確認
+- [x] tests/test_data_loader.py - PlainCSV読み込みテスト
+- [x] pytest実行確認
+- [x] CI/CD動作確認
 
 **成果物**: 動作するexe + 自動テスト環境
 
