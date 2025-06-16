@@ -9,5 +9,8 @@
       "Bash(git add:*)"
     ],
     "deny": []
-  }
+  },
+  "enabledMcpjsonServers": [
+  ],
+  "enableAllProjectMcpServers": true
 }
