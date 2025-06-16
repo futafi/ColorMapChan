@@ -1,6 +1,6 @@
 """
 GUI application using tkinter
-Phase 1: Basic file selection and plot display
+Phase 3: Enhanced GUI with real-time coordinate display
 """
 
 import tkinter as tk
@@ -8,6 +8,7 @@ from tkinter import ttk, filedialog, messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
+import numpy as np
 
 from core.data_loader import DataLoader
 from core.plotter import Plotter
@@ -30,6 +31,10 @@ class ColorMapApp:
         self.y_var = tk.StringVar()
         self.z_var = tk.StringVar()
         self.colormap_var = tk.StringVar(value='plasma')
+        
+        # Coordinate display variables
+        self.coord_var = tk.StringVar(value="Ready")
+        self.current_axes = None
         
         # Setup GUI
         self.setup_gui()
@@ -103,6 +108,14 @@ class ColorMapApp:
         # Add navigation toolbar
         toolbar = NavigationToolbar2Tk(self.canvas, plot_frame)
         toolbar.update()
+        
+        # Add status bar for coordinate display
+        status_frame = ttk.Frame(main_frame)
+        status_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Label(status_frame, text="Coordinates:").pack(side=tk.LEFT, padx=(5, 0))
+        coord_label = ttk.Label(status_frame, textvariable=self.coord_var, relief=tk.SUNKEN)
+        coord_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 5))
         
     def load_file(self):
         """Load CSV file"""
@@ -207,8 +220,48 @@ class ColorMapApp:
             # Refresh canvas
             self.canvas.draw()
             
+            # Store current axes for coordinate tracking
+            self.current_axes = ax
+            
+            # Connect mouse motion event for coordinate display
+            self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+            
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create plot:\n{str(e)}")
+    
+    def on_mouse_move(self, event):
+        """Handle mouse movement for coordinate display"""
+        if event.inaxes == self.current_axes and event.xdata is not None and event.ydata is not None:
+            # Get current column names for proper labeling
+            x_col = self.x_var.get()
+            y_col = self.y_var.get()
+            z_col = self.z_var.get()
+            
+            # Format coordinates
+            coord_text = f"{x_col}={event.xdata:.3f}, {y_col}={event.ydata:.3f}"
+            
+            # Try to get the interpolated value at the cursor position
+            try:
+                data = self.data_loader.get_data()
+                if data is not None:
+                    # Find nearest data point for value display
+                    x_data = data[x_col].values
+                    y_data = data[y_col].values
+                    z_data = data[z_col].values
+                    
+                    # Find closest point
+                    distances = ((x_data - event.xdata)**2 + (y_data - event.ydata)**2)
+                    closest_idx = distances.argmin()
+                    closest_z = z_data[closest_idx]
+                    
+                    coord_text += f", {z_col}≈{closest_z:.3e}"
+            except:
+                pass  # If value lookup fails, just show coordinates
+            
+            self.coord_var.set(coord_text)
+        else:
+            # Mouse is outside the plot area
+            self.coord_var.set("Ready")
 
 
 def run_gui():
