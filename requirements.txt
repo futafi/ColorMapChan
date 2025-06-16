@@ -8,6 +8,3 @@ pytest
 flake8
 pylint
 pyinstaller
-
-# ドキュメント用パッケージ
-sphinx
