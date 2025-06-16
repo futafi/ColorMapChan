@@ -102,6 +102,38 @@ Auto-detection tries formats in order: ParameterCSV → AnalysisCSV → PlainCSV
 - Single-file executable for easy distribution
 - Users only interact with GUI (exe double-click)
 
+## Project Documentation
+
+### Important Reference Files
+These files in the `notes/` directory contain critical project information:
+
+- **`notes/SPEC.md`**: Complete feature specification and requirements
+  - 2D/3D heatmap visualization requirements
+  - Interactive operations (zoom, pan, cross-section plots)
+  - Filtering capabilities and display options
+  - Export functionality specifications
+  
+- **`notes/FILEFORMAT.md`**: Data format specifications
+  - PlainCSV, ParameterCSV, AnalysisCSV format details
+  - B1500A semiconductor analyzer data formats
+  - Auto-detection algorithms and parsing requirements
+  
+- **`notes/IMPLEMENTATION_PHASES.md`**: Detailed development roadmap
+  - 7-phase implementation plan with specific tasks
+  - Phase 1 focuses on minimal working version + CI/CD
+  - Each phase has clear deliverables and success criteria
+  
+- **`notes/DEVELOPMENT_RULES.md`**: Development guidelines and git workflow
+  - Semantic versioning and commit message format
+  - v2 branch strategy for rebuild project
+  - Quality requirements and CI/CD rules
+
+**IMPORTANT**: Always refer to these files when:
+- Implementing new features (check SPEC.md)
+- Working with data formats (check FILEFORMAT.md)
+- Planning next steps (check IMPLEMENTATION_PHASES.md)
+- Making commits or releases (check DEVELOPMENT_RULES.md)
+
 ## Implementation Notes
 
 ### Keep It Simple
