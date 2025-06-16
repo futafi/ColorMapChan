@@ -36,6 +36,18 @@ class ColorMapApp:
         self.coord_var = tk.StringVar(value="Ready")
         self.current_axes = None
         
+        # Cross-section variables
+        self.cross_section_mode = tk.BooleanVar(value=False)
+        self.cross_section_x = None
+        self.cross_section_y = None
+        self.cross_section_window = None
+        
+        # Scale variables
+        self.x_scale_var = tk.StringVar(value='linear')
+        self.y_scale_var = tk.StringVar(value='linear')
+        self.z_scale_var = tk.StringVar(value='linear')
+        self.scientific_notation_var = tk.BooleanVar(value=False)
+        
         # Range setting variables
         self.x_min_var = tk.StringVar()
         self.x_max_var = tk.StringVar()
@@ -104,6 +116,64 @@ class ColorMapApp:
             text="Create Plot", 
             command=self.create_plot
         ).grid(row=0, column=8)
+        
+        # Cross-section mode toggle
+        cross_section_check = ttk.Checkbutton(
+            axis_frame,
+            text="Cross-section Mode",
+            variable=self.cross_section_mode
+        )
+        cross_section_check.grid(row=0, column=9, padx=(10, 0))
+        
+        # Scale options frame
+        scale_frame = ttk.Frame(control_frame)
+        scale_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Scale selection
+        ttk.Label(scale_frame, text="X Scale:").grid(row=0, column=0, padx=(0, 5))
+        x_scale_combo = ttk.Combobox(
+            scale_frame, 
+            textvariable=self.x_scale_var,
+            values=['linear', 'log'],
+            width=8,
+            state="readonly"
+        )
+        x_scale_combo.grid(row=0, column=1, padx=(0, 10))
+        
+        ttk.Label(scale_frame, text="Y Scale:").grid(row=0, column=2, padx=(0, 5))
+        y_scale_combo = ttk.Combobox(
+            scale_frame, 
+            textvariable=self.y_scale_var,
+            values=['linear', 'log'],
+            width=8,
+            state="readonly"
+        )
+        y_scale_combo.grid(row=0, column=3, padx=(0, 10))
+        
+        ttk.Label(scale_frame, text="Color Scale:").grid(row=0, column=4, padx=(0, 5))
+        z_scale_combo = ttk.Combobox(
+            scale_frame, 
+            textvariable=self.z_scale_var,
+            values=['linear', 'log'],
+            width=8,
+            state="readonly"
+        )
+        z_scale_combo.grid(row=0, column=5, padx=(0, 10))
+        
+        # Scientific notation toggle
+        sci_notation_check = ttk.Checkbutton(
+            scale_frame,
+            text="Scientific Notation",
+            variable=self.scientific_notation_var
+        )
+        sci_notation_check.grid(row=0, column=6, padx=(10, 0))
+        
+        # Apply scale button
+        ttk.Button(
+            scale_frame,
+            text="Apply Scale",
+            command=self.apply_scale_settings
+        ).grid(row=0, column=7, padx=(10, 0))
         
         # Range setting controls
         range_frame = ttk.LabelFrame(control_frame, text="Range Settings", padding=10)
@@ -243,7 +313,7 @@ class ColorMapApp:
             
             # Create new plot using plotter
             self.plotter.clear()
-            plot_fig = self.plotter.create_2d_heatmap(
+            self.plotter.create_2d_heatmap(
                 self.data_loader.get_data(),
                 x_col, y_col, z_col,
                 self.colormap_var.get()
@@ -275,6 +345,8 @@ class ColorMapApp:
             # Add colorbar
             cbar = self.figure.colorbar(im, ax=ax)
             cbar.set_label(z_col)
+            # Store colorbar reference for scale formatting
+            self.figure._colorbar = cbar
             
             # Set labels and title
             ax.set_xlabel(x_col)
@@ -290,6 +362,9 @@ class ColorMapApp:
             
             # Connect mouse motion event for coordinate display
             self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+            
+            # Connect mouse click event for cross-section mode
+            self.canvas.mpl_connect('button_press_event', self.on_mouse_click)
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create plot:\n{str(e)}")
@@ -320,13 +395,190 @@ class ColorMapApp:
                     closest_z = z_data[closest_idx]
                     
                     coord_text += f", {z_col}≈{closest_z:.3e}"
-            except:
+            except Exception:
                 pass  # If value lookup fails, just show coordinates
             
             self.coord_var.set(coord_text)
         else:
             # Mouse is outside the plot area
             self.coord_var.set("Ready")
+    
+    def on_mouse_click(self, event):
+        """Handle mouse click for cross-section mode"""
+        if not self.cross_section_mode.get():
+            return
+        
+        if event.inaxes == self.current_axes and event.xdata is not None and event.ydata is not None:
+            # Store click position
+            self.cross_section_x = event.xdata
+            self.cross_section_y = event.ydata
+            
+            # Update coordinate display
+            x_col = self.x_var.get()
+            y_col = self.y_var.get()
+            coord_text = f"Cross-section at {x_col}={event.xdata:.3f}, {y_col}={event.ydata:.3f}"
+            self.coord_var.set(coord_text)
+            
+            # Show cross-section plots
+            self.show_cross_sections()
+    
+    def show_cross_sections(self):
+        """Display cross-section plots in a separate window"""
+        if self.cross_section_x is None or self.cross_section_y is None:
+            return
+        
+        # Close existing cross-section window if open
+        if self.cross_section_window is not None:
+            try:
+                self.cross_section_window.destroy()
+            except:
+                pass
+        
+        # Create new window for cross-sections
+        self.cross_section_window = tk.Toplevel(self.root)
+        self.cross_section_window.title("Cross-Section Plots")
+        self.cross_section_window.geometry("800x600")
+        
+        # Create matplotlib figure for cross-sections
+        from matplotlib.figure import Figure
+        cs_figure = Figure(figsize=(10, 8))
+        cs_canvas = FigureCanvasTkAgg(cs_figure, self.cross_section_window)
+        cs_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+        # Add navigation toolbar
+        cs_toolbar = NavigationToolbar2Tk(cs_canvas, self.cross_section_window)
+        cs_toolbar.update()
+        
+        try:
+            # Get data and column names
+            data = self.data_loader.get_data()
+            x_col = self.x_var.get()
+            y_col = self.y_var.get()
+            z_col = self.z_var.get()
+            
+            # Create pivot table for easier slicing
+            pivot_data = data.pivot_table(
+                index=y_col, 
+                columns=x_col, 
+                values=z_col, 
+                fill_value=None
+            )
+            
+            # Create two subplots (X and Y cross-sections)
+            ax1 = cs_figure.add_subplot(2, 1, 1)
+            ax2 = cs_figure.add_subplot(2, 1, 2)
+            
+            # X cross-section (constant Y, varying X)
+            y_closest_idx = (pivot_data.index - self.cross_section_y).abs().idxmin()
+            x_cross_data = pivot_data.loc[y_closest_idx].dropna()
+            
+            ax1.plot(x_cross_data.index, x_cross_data.values, 'b-', linewidth=2, marker='o', markersize=4)
+            ax1.axvline(x=self.cross_section_x, color='red', linestyle='--', alpha=0.7, label=f'{x_col}={self.cross_section_x:.3f}')
+            ax1.set_xlabel(x_col)
+            ax1.set_ylabel(z_col)
+            ax1.set_title(f'X Cross-section at {y_col}={y_closest_idx:.3f}')
+            ax1.grid(True, alpha=0.3)
+            ax1.legend()
+            
+            # Y cross-section (constant X, varying Y)
+            x_closest_idx = (pivot_data.columns - self.cross_section_x).abs().idxmin()
+            y_cross_data = pivot_data[x_closest_idx].dropna()
+            
+            ax2.plot(y_cross_data.index, y_cross_data.values, 'g-', linewidth=2, marker='s', markersize=4)
+            ax2.axvline(x=self.cross_section_y, color='red', linestyle='--', alpha=0.7, label=f'{y_col}={self.cross_section_y:.3f}')
+            ax2.set_xlabel(y_col)
+            ax2.set_ylabel(z_col)
+            ax2.set_title(f'Y Cross-section at {x_col}={x_closest_idx:.3f}')
+            ax2.grid(True, alpha=0.3)
+            ax2.legend()
+            
+            # Adjust layout
+            cs_figure.tight_layout()
+            cs_canvas.draw()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to create cross-sections:\n{str(e)}")
+            if self.cross_section_window:
+                self.cross_section_window.destroy()
+                self.cross_section_window = None
+    
+    def apply_scale_settings(self):
+        """Apply scale settings to the current plot"""
+        if self.current_axes is None:
+            messagebox.showwarning("Warning", "Please create a plot first")
+            return
+        
+        try:
+            # Apply X scale
+            if self.x_scale_var.get() == 'log':
+                self.current_axes.set_xscale('log')
+            else:
+                self.current_axes.set_xscale('linear')
+            
+            # Apply Y scale
+            if self.y_scale_var.get() == 'log':
+                self.current_axes.set_yscale('log')
+            else:
+                self.current_axes.set_yscale('linear')
+            
+            # Apply color scale (for colorbar)
+            images = self.current_axes.get_images()
+            if images and self.z_scale_var.get() == 'log':
+                # For log color scale, we need to handle data transformation
+                data = self.data_loader.get_data()
+                z_col = self.z_var.get()
+                
+                if data is not None and z_col:
+                    z_data = data[z_col].values
+                    # Check if data is suitable for log scale (positive values)
+                    if np.all(z_data > 0):
+                        images[0].set_norm(plt.colors.LogNorm())
+                    else:
+                        messagebox.showwarning(
+                            "Warning",
+                            f"Cannot apply log scale to {z_col}: "
+                            f"contains non-positive values"
+                        )
+            elif images:
+                images[0].set_norm(plt.colors.Normalize())
+            
+            # Apply scientific notation formatting
+            if self.scientific_notation_var.get():
+                from matplotlib.ticker import ScalarFormatter
+                
+                # X axis
+                x_formatter = ScalarFormatter(useMathText=True)
+                x_formatter.set_scientific(True)
+                x_formatter.set_powerlimits((-2, 2))
+                self.current_axes.xaxis.set_major_formatter(x_formatter)
+                
+                # Y axis
+                y_formatter = ScalarFormatter(useMathText=True)
+                y_formatter.set_scientific(True)
+                y_formatter.set_powerlimits((-2, 2))
+                self.current_axes.yaxis.set_major_formatter(y_formatter)
+                
+                # Colorbar
+                if hasattr(self.figure, '_colorbar') and self.figure._colorbar:
+                    cbar_formatter = ScalarFormatter(useMathText=True)
+                    cbar_formatter.set_scientific(True)
+                    cbar_formatter.set_powerlimits((-2, 2))
+                    self.figure._colorbar.ax.yaxis.set_major_formatter(cbar_formatter)
+            else:
+                # Reset to default formatting
+                self.current_axes.xaxis.set_major_formatter(plt.ScalarFormatter())
+                self.current_axes.yaxis.set_major_formatter(plt.ScalarFormatter())
+                
+                if hasattr(self.figure, '_colorbar') and self.figure._colorbar:
+                    self.figure._colorbar.ax.yaxis.set_major_formatter(plt.ScalarFormatter())
+            
+            # Refresh the plot
+            self.canvas.draw()
+            
+        except Exception as e:
+            messagebox.showerror(
+                "Error", f"Failed to apply scale settings:\n{str(e)}"
+            )
     
     def on_auto_range_toggle(self):
         """Handle auto range checkbox toggle"""
@@ -442,5 +694,5 @@ class ColorMapApp:
 def run_gui():
     """Run the GUI application"""
     root = tk.Tk()
-    app = ColorMapApp(root)
+    ColorMapApp(root)
     root.mainloop()
