@@ -273,6 +273,13 @@ class TestDataProcessor(unittest.TestCase):
         self.assertIn("A == 3", info['descriptions'])
         self.assertEqual(info['statistics']['filtered_count'], 1)
         self.assertEqual(len(info['available_columns']), 3)
+        
+        # Test filter_list functionality
+        self.assertEqual(len(info['filter_list']), 1)
+        filter_item = info['filter_list'][0]
+        self.assertEqual(filter_item['column'], 'A')
+        self.assertEqual(filter_item['type'], 'value')
+        self.assertEqual(filter_item['description'], 'A == 3')
     
     def test_clear_all_filters_processor(self):
         """Test clearing all filters through processor"""
@@ -289,6 +296,73 @@ class TestDataProcessor(unittest.TestCase):
         
         result = self.processor.get_processed_data()
         self.assertEqual(len(result), len(self.data))
+
+
+class TestFilterManagerAdvanced(unittest.TestCase):
+    """Test advanced FilterManager functionality for Phase 5.2"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.data = pd.DataFrame({
+            'A': [1, 2, 3, 4, 5],
+            'B': [10, 20, 30, 40, 50],
+            'C': ['x', 'y', 'z', 'x', 'y']
+        })
+        self.manager = FilterManager()
+        self.manager.set_data(self.data)
+    
+    def test_get_filter_list(self):
+        """Test getting detailed filter list"""
+        filter1 = ValueFilter('A', 3)
+        filter2 = RangeFilter('B', 20, 40)
+        
+        self.manager.add_filter(filter1)
+        self.manager.add_filter(filter2)
+        
+        filter_list = self.manager.get_filter_list()
+        
+        self.assertEqual(len(filter_list), 2)
+        
+        # Check first filter
+        self.assertIn('id', filter_list[0])
+        self.assertIn('description', filter_list[0])
+        self.assertIn('column', filter_list[0])
+        self.assertIn('type', filter_list[0])
+        
+        # Verify filter details
+        value_filter = next(f for f in filter_list if f['type'] == 'value')
+        range_filter = next(f for f in filter_list if f['type'] == 'range')
+        
+        self.assertEqual(value_filter['column'], 'A')
+        self.assertEqual(value_filter['description'], 'A == 3')
+        
+        self.assertEqual(range_filter['column'], 'B')
+        self.assertEqual(range_filter['description'], '20 <= B <= 40')
+    
+    def test_filter_list_empty(self):
+        """Test filter list when no filters are active"""
+        filter_list = self.manager.get_filter_list()
+        self.assertEqual(len(filter_list), 0)
+    
+    def test_filter_list_after_removal(self):
+        """Test filter list after removing filters"""
+        filter1 = ValueFilter('A', 3)
+        filter2 = RangeFilter('B', 20, 40)
+        
+        self.manager.add_filter(filter1)
+        self.manager.add_filter(filter2)
+        
+        # Initially should have 2 filters
+        filter_list = self.manager.get_filter_list()
+        self.assertEqual(len(filter_list), 2)
+        
+        # Remove one filter
+        self.manager.remove_filter(filter1.id)
+        
+        # Should now have 1 filter
+        filter_list = self.manager.get_filter_list()
+        self.assertEqual(len(filter_list), 1)
+        self.assertEqual(filter_list[0]['type'], 'range')
 
 
 if __name__ == '__main__':

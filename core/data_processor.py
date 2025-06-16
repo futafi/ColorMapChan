@@ -123,6 +123,18 @@ class FilterManager:
         """Get descriptions of all active filters"""
         return [filter_obj.get_description() for filter_obj in self.filters.values()]
     
+    def get_filter_list(self) -> List[Dict[str, str]]:
+        """Get list of filters with id and description"""
+        return [
+            {
+                'id': filter_id,
+                'description': filter_obj.get_description(),
+                'column': filter_obj.column,
+                'type': filter_obj.name
+            }
+            for filter_id, filter_obj in self.filters.items()
+        ]
+    
     def get_filter_statistics(self) -> Dict[str, Any]:
         """Get statistics about filtering results"""
         if self.original_data is None or self.filtered_data is None:
@@ -186,6 +198,7 @@ class DataProcessor:
         """Get comprehensive filter information"""
         return {
             'descriptions': self.filter_manager.get_filter_descriptions(),
+            'filter_list': self.filter_manager.get_filter_list(),
             'statistics': self.filter_manager.get_filter_statistics(),
             'has_filters': self.filter_manager.has_filters(),
             'available_columns': self.filter_manager.get_available_columns()

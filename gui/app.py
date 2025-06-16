@@ -297,6 +297,47 @@ class ColorMapApp:
         )
         filter_status_label.grid(row=1, column=1, columnspan=10, padx=(0, 5), pady=(5, 0), sticky=tk.EW)
         
+        # Active filters list
+        filters_list_frame = ttk.LabelFrame(control_frame, text="Active Filters", padding=10)
+        filters_list_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Create listbox for filters with scrollbar
+        filter_list_container = ttk.Frame(filters_list_frame)
+        filter_list_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Listbox for active filters
+        self.filter_listbox = tk.Listbox(
+            filter_list_container,
+            height=4,
+            selectmode=tk.SINGLE
+        )
+        self.filter_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Scrollbar for listbox
+        filter_scrollbar = ttk.Scrollbar(
+            filter_list_container,
+            orient=tk.VERTICAL,
+            command=self.filter_listbox.yview
+        )
+        filter_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.filter_listbox.config(yscrollcommand=filter_scrollbar.set)
+        
+        # Filter list action buttons
+        filter_actions_frame = ttk.Frame(filters_list_frame)
+        filter_actions_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Button(
+            filter_actions_frame,
+            text="Remove Selected",
+            command=self.remove_selected_filter
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(
+            filter_actions_frame,
+            text="Clear All Filters",
+            command=self.clear_all_filters
+        ).pack(side=tk.LEFT)
+        
         # Store filter UI components
         self.filter_column_combo = filter_column_combo
         self.filter_range_entries = [self.filter_min_entry, self.filter_max_entry]
@@ -827,8 +868,9 @@ class ColorMapApp:
                 
                 self.data_processor.add_range_filter(column, min_value, max_value)
             
-            # Update filter status and refresh plot
+            # Update filter status, filter list, and refresh plot
             self.update_filter_status()
+            self.update_filter_list()
             self.refresh_plot_with_filters()
             
             # Clear filter input fields
@@ -843,7 +885,49 @@ class ColorMapApp:
         """Clear all filters"""
         self.data_processor.clear_all_filters()
         self.update_filter_status()
+        self.update_filter_list()
         self.refresh_plot_with_filters()
+    
+    def remove_selected_filter(self):
+        """Remove the selected filter from the list"""
+        selection = self.filter_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select a filter to remove")
+            return
+        
+        try:
+            # Get filter info and selected index
+            filter_info = self.data_processor.get_filter_info()
+            filter_list = filter_info['filter_list']
+            
+            if selection[0] < len(filter_list):
+                selected_filter = filter_list[selection[0]]
+                filter_id = selected_filter['id']
+                
+                # Remove the filter
+                self.data_processor.remove_filter(filter_id)
+                
+                # Update UI and refresh plot
+                self.update_filter_status()
+                self.update_filter_list()
+                self.refresh_plot_with_filters()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove filter:\n{str(e)}")
+    
+    def update_filter_list(self):
+        """Update the filter list display"""
+        # Clear current list
+        self.filter_listbox.delete(0, tk.END)
+        
+        # Get current filters
+        filter_info = self.data_processor.get_filter_info()
+        filter_list = filter_info['filter_list']
+        
+        # Add filters to listbox
+        for filter_item in filter_list:
+            display_text = f"{filter_item['type'].title()}: {filter_item['description']}"
+            self.filter_listbox.insert(tk.END, display_text)
     
     def update_filter_status(self):
         """Update filter status display"""
@@ -853,11 +937,13 @@ class ColorMapApp:
             self.filter_status_var.set("No filters applied")
         else:
             stats = filter_info['statistics']
-            descriptions = filter_info['descriptions']
+            filter_list = filter_info['filter_list']
             
-            status_text = f"Filters: {len(descriptions)} active | "
-            status_text += f"Data: {stats['filtered_count']}/{stats['original_count']} rows "
-            status_text += f"({stats['filtered_percentage']:.1f}%)"
+            status_text = f"Filters: {len(filter_list)} active | "
+            status_text += f"Showing: {stats['filtered_count']}/{stats['original_count']} rows "
+            status_text += f"({stats['filtered_percentage']:.1f}%) | "
+            status_text += f"Removed: {stats['removed_count']} rows "
+            status_text += f"({stats['removed_percentage']:.1f}%)"
             
             self.filter_status_var.set(status_text)
     

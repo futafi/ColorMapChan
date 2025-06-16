@@ -6,11 +6,12 @@
       "Bash(python -m pytest tests/test_data_loader.py -v)",
       "Bash(python:*)",
       "Bash(flake8:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(PYTHONPATH=. pytest tests/test_data_processor.py -v)",
+      "Bash(PYTHONPATH=. pytest tests/ -v)"
     ],
     "deny": []
   },
-  "enabledMcpjsonServers": [
-  ],
-  "enableAllProjectMcpServers": true
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": []
 }
