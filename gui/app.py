@@ -12,6 +12,7 @@ import numpy as np
 
 from core.data_loader import DataLoader
 from core.plotter import Plotter
+from core.data_processor import DataProcessor
 
 
 class ColorMapApp:
@@ -25,6 +26,7 @@ class ColorMapApp:
         # Initialize core components
         self.data_loader = DataLoader()
         self.plotter = Plotter()
+        self.data_processor = DataProcessor()
         
         # GUI variables
         self.x_var = tk.StringVar()
@@ -47,6 +49,14 @@ class ColorMapApp:
         self.y_scale_var = tk.StringVar(value='linear')
         self.z_scale_var = tk.StringVar(value='linear')
         self.scientific_notation_var = tk.BooleanVar(value=False)
+        
+        # Filter variables
+        self.filter_column_var = tk.StringVar()
+        self.filter_type_var = tk.StringVar(value='value')
+        self.filter_value_var = tk.StringVar()
+        self.filter_min_var = tk.StringVar()
+        self.filter_max_var = tk.StringVar()
+        self.filter_status_var = tk.StringVar(value="No filters applied")
         
         # Range setting variables
         self.x_min_var = tk.StringVar()
@@ -225,6 +235,75 @@ class ColorMapApp:
         # Store entry widgets for enabling/disabling
         self.range_entries = [x_min_entry, x_max_entry, y_min_entry, y_max_entry, z_min_entry, z_max_entry]
         
+        # Filter controls
+        filter_frame = ttk.LabelFrame(control_frame, text="Data Filtering", padding=10)
+        filter_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Filter type selection
+        ttk.Label(filter_frame, text="Column:").grid(row=0, column=0, padx=(0, 5))
+        filter_column_combo = ttk.Combobox(
+            filter_frame, 
+            textvariable=self.filter_column_var, 
+            width=12,
+            state="readonly"
+        )
+        filter_column_combo.grid(row=0, column=1, padx=(0, 10))
+        
+        ttk.Label(filter_frame, text="Type:").grid(row=0, column=2, padx=(0, 5))
+        filter_type_combo = ttk.Combobox(
+            filter_frame,
+            textvariable=self.filter_type_var,
+            values=['value', 'range'],
+            width=8,
+            state="readonly"
+        )
+        filter_type_combo.grid(row=0, column=3, padx=(0, 10))
+        filter_type_combo.bind('<<ComboboxSelected>>', self.on_filter_type_change)
+        
+        # Value filter controls
+        ttk.Label(filter_frame, text="Value:").grid(row=0, column=4, padx=(0, 5))
+        self.filter_value_entry = ttk.Entry(filter_frame, textvariable=self.filter_value_var, width=10)
+        self.filter_value_entry.grid(row=0, column=5, padx=(0, 10))
+        
+        # Range filter controls
+        ttk.Label(filter_frame, text="Min:").grid(row=0, column=6, padx=(0, 2))
+        self.filter_min_entry = ttk.Entry(filter_frame, textvariable=self.filter_min_var, width=8)
+        self.filter_min_entry.grid(row=0, column=7, padx=(0, 5))
+        
+        ttk.Label(filter_frame, text="Max:").grid(row=0, column=8, padx=(0, 2))
+        self.filter_max_entry = ttk.Entry(filter_frame, textvariable=self.filter_max_var, width=8)
+        self.filter_max_entry.grid(row=0, column=9, padx=(0, 10))
+        
+        # Filter action buttons
+        ttk.Button(
+            filter_frame,
+            text="Add Filter",
+            command=self.add_filter
+        ).grid(row=0, column=10, padx=(10, 5))
+        
+        ttk.Button(
+            filter_frame,
+            text="Clear All",
+            command=self.clear_all_filters
+        ).grid(row=0, column=11, padx=(5, 0))
+        
+        # Filter status display
+        ttk.Label(filter_frame, text="Status:").grid(row=1, column=0, padx=(0, 5), pady=(5, 0), sticky=tk.W)
+        filter_status_label = ttk.Label(
+            filter_frame, 
+            textvariable=self.filter_status_var,
+            relief=tk.SUNKEN,
+            anchor=tk.W
+        )
+        filter_status_label.grid(row=1, column=1, columnspan=10, padx=(0, 5), pady=(5, 0), sticky=tk.EW)
+        
+        # Store filter UI components
+        self.filter_column_combo = filter_column_combo
+        self.filter_range_entries = [self.filter_min_entry, self.filter_max_entry]
+        
+        # Initialize filter UI state
+        self.on_filter_type_change(None)
+        
         # Plot area
         plot_frame = ttk.LabelFrame(main_frame, text="Plot", padding=5)
         plot_frame.pack(fill=tk.BOTH, expand=True)
@@ -273,6 +352,10 @@ class ColorMapApp:
                 self.x_combo['values'] = columns
                 self.y_combo['values'] = columns
                 self.z_combo['values'] = columns
+                self.filter_column_combo['values'] = columns
+                
+                # Initialize data processor with loaded data
+                self.data_processor.set_data(self.data_loader.get_data())
                 
                 # Set default selections if enough columns
                 if len(columns) >= 3:
@@ -322,8 +405,9 @@ class ColorMapApp:
             # Copy plot to GUI figure
             ax = self.figure.add_subplot(111)
             
-            # Get the plot data from plotter
-            data = self.data_loader.get_data()
+            # Get the plot data (use filtered data if available)
+            filtered_data = self.data_processor.get_processed_data()
+            data = filtered_data if filtered_data is not None else self.data_loader.get_data()
             pivot_data = data.pivot_table(
                 index=y_col, 
                 columns=x_col, 
@@ -351,7 +435,8 @@ class ColorMapApp:
             # Set labels and title
             ax.set_xlabel(x_col)
             ax.set_ylabel(y_col)
-            ax.set_title(f'2D Heatmap: {z_col}')
+            title_suffix = " (Filtered)" if self.data_processor.filter_manager.has_filters() else ""
+            ax.set_title(f'2D Heatmap: {z_col}{title_suffix}')
             ax.grid(True, alpha=0.3)
             
             # Refresh canvas
@@ -689,6 +774,158 @@ class ColorMapApp:
                     self.z_max_var.set(f"{z_max:.3g}")
         except Exception:
             pass  # Silently fail if range calculation fails
+    
+    def on_filter_type_change(self, event):
+        """Handle filter type change"""
+        filter_type = self.filter_type_var.get()
+        
+        if filter_type == 'value':
+            # Enable value entry, disable range entries
+            self.filter_value_entry.config(state='normal')
+            for entry in self.filter_range_entries:
+                entry.config(state='disabled')
+        elif filter_type == 'range':
+            # Disable value entry, enable range entries
+            self.filter_value_entry.config(state='disabled')
+            for entry in self.filter_range_entries:
+                entry.config(state='normal')
+    
+    def add_filter(self):
+        """Add a new filter"""
+        column = self.filter_column_var.get()
+        filter_type = self.filter_type_var.get()
+        
+        if not column:
+            messagebox.showwarning("Warning", "Please select a column to filter")
+            return
+        
+        try:
+            if filter_type == 'value':
+                value_str = self.filter_value_var.get()
+                if not value_str:
+                    messagebox.showwarning("Warning", "Please enter a value to filter")
+                    return
+                
+                # Try to convert to appropriate type
+                try:
+                    value = float(value_str)
+                except ValueError:
+                    value = value_str  # Keep as string
+                
+                self.data_processor.add_value_filter(column, value)
+                
+            elif filter_type == 'range':
+                min_str = self.filter_min_var.get()
+                max_str = self.filter_max_var.get()
+                
+                if not min_str or not max_str:
+                    messagebox.showwarning("Warning", "Please enter both min and max values")
+                    return
+                
+                min_value = float(min_str)
+                max_value = float(max_str)
+                
+                self.data_processor.add_range_filter(column, min_value, max_value)
+            
+            # Update filter status and refresh plot
+            self.update_filter_status()
+            self.refresh_plot_with_filters()
+            
+            # Clear filter input fields
+            self.filter_value_var.set("")
+            self.filter_min_var.set("")
+            self.filter_max_var.set("")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add filter:\n{str(e)}")
+    
+    def clear_all_filters(self):
+        """Clear all filters"""
+        self.data_processor.clear_all_filters()
+        self.update_filter_status()
+        self.refresh_plot_with_filters()
+    
+    def update_filter_status(self):
+        """Update filter status display"""
+        filter_info = self.data_processor.get_filter_info()
+        
+        if not filter_info['has_filters']:
+            self.filter_status_var.set("No filters applied")
+        else:
+            stats = filter_info['statistics']
+            descriptions = filter_info['descriptions']
+            
+            status_text = f"Filters: {len(descriptions)} active | "
+            status_text += f"Data: {stats['filtered_count']}/{stats['original_count']} rows "
+            status_text += f"({stats['filtered_percentage']:.1f}%)"
+            
+            self.filter_status_var.set(status_text)
+    
+    def refresh_plot_with_filters(self):
+        """Refresh the plot using filtered data"""
+        if self.current_axes is None:
+            return
+        
+        # Get filtered data
+        filtered_data = self.data_processor.get_processed_data()
+        
+        if filtered_data is None or filtered_data.empty:
+            messagebox.showwarning("Warning", "No data remaining after filtering")
+            return
+        
+        x_col = self.x_var.get()
+        y_col = self.y_var.get()
+        z_col = self.z_var.get()
+        
+        if not all([x_col, y_col, z_col]):
+            return
+        
+        try:
+            # Clear previous plot
+            self.figure.clear()
+            
+            # Create new plot using filtered data
+            ax = self.figure.add_subplot(111)
+            
+            # Create pivot table from filtered data
+            pivot_data = filtered_data.pivot_table(
+                index=y_col, 
+                columns=x_col, 
+                values=z_col, 
+                fill_value=None
+            )
+            
+            im = ax.imshow(
+                pivot_data.values,
+                aspect='auto',
+                origin='lower',
+                extent=[
+                    pivot_data.columns.min(), pivot_data.columns.max(),
+                    pivot_data.index.min(), pivot_data.index.max()
+                ],
+                cmap=self.colormap_var.get()
+            )
+            
+            # Add colorbar
+            cbar = self.figure.colorbar(im, ax=ax)
+            cbar.set_label(z_col)
+            # Store colorbar reference for scale formatting
+            self.figure._colorbar = cbar
+            
+            # Set labels and title
+            ax.set_xlabel(x_col)
+            ax.set_ylabel(y_col)
+            ax.set_title(f'2D Heatmap: {z_col} (Filtered)')
+            ax.grid(True, alpha=0.3)
+            
+            # Store current axes
+            self.current_axes = ax
+            
+            # Refresh canvas
+            self.canvas.draw()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to refresh plot with filters:\n{str(e)}")
 
 
 def run_gui():

@@ -1,0 +1,192 @@
+"""
+Data processor for filtering and transformations
+Phase 5.1: Basic filtering functionality
+"""
+
+import pandas as pd
+from typing import Optional, List, Dict, Any, Union
+from abc import ABC, abstractmethod
+
+
+class Filter(ABC):
+    """Abstract base class for data filters"""
+    
+    def __init__(self, column: str, name: str):
+        self.column = column
+        self.name = name
+        self.id = f"{name}_{column}"
+    
+    @abstractmethod
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply filter to data and return filtered DataFrame"""
+        pass
+    
+    @abstractmethod
+    def get_description(self) -> str:
+        """Get human-readable description of filter"""
+        pass
+
+
+class ValueFilter(Filter):
+    """Filter for exact value matching"""
+    
+    def __init__(self, column: str, value: Union[str, float, int]):
+        super().__init__(column, "value")
+        self.value = value
+        self.id = f"value_{column}_{value}"
+    
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply exact value filter"""
+        if self.column not in data.columns:
+            raise ValueError(f"Column '{self.column}' not found in data")
+        
+        return data[data[self.column] == self.value].copy()
+    
+    def get_description(self) -> str:
+        """Get filter description"""
+        return f"{self.column} == {self.value}"
+
+
+class RangeFilter(Filter):
+    """Filter for range-based filtering (min <= value <= max)"""
+    
+    def __init__(self, column: str, min_value: float, max_value: float):
+        super().__init__(column, "range")
+        self.min_value = min_value
+        self.max_value = max_value
+        self.id = f"range_{column}_{min_value}_{max_value}"
+        
+        if min_value > max_value:
+            raise ValueError(f"min_value ({min_value}) cannot be greater than max_value ({max_value})")
+    
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply range filter"""
+        if self.column not in data.columns:
+            raise ValueError(f"Column '{self.column}' not found in data")
+        
+        mask = (data[self.column] >= self.min_value) & (data[self.column] <= self.max_value)
+        return data[mask].copy()
+    
+    def get_description(self) -> str:
+        """Get filter description"""
+        return f"{self.min_value} <= {self.column} <= {self.max_value}"
+
+
+class FilterManager:
+    """Manages multiple filters and applies them to data"""
+    
+    def __init__(self):
+        self.filters: Dict[str, Filter] = {}
+        self.original_data: Optional[pd.DataFrame] = None
+        self.filtered_data: Optional[pd.DataFrame] = None
+    
+    def set_data(self, data: pd.DataFrame) -> None:
+        """Set original data for filtering"""
+        self.original_data = data.copy()
+        self.filtered_data = data.copy()
+    
+    def add_filter(self, filter_obj: Filter) -> None:
+        """Add a new filter"""
+        self.filters[filter_obj.id] = filter_obj
+        self._apply_all_filters()
+    
+    def remove_filter(self, filter_id: str) -> None:
+        """Remove a filter by ID"""
+        if filter_id in self.filters:
+            del self.filters[filter_id]
+            self._apply_all_filters()
+    
+    def clear_all_filters(self) -> None:
+        """Remove all filters"""
+        self.filters.clear()
+        self._apply_all_filters()
+    
+    def _apply_all_filters(self) -> None:
+        """Apply all filters to original data"""
+        if self.original_data is None:
+            return
+        
+        # Start with original data
+        filtered_data = self.original_data.copy()
+        
+        # Apply each filter sequentially
+        for filter_obj in self.filters.values():
+            filtered_data = filter_obj.apply(filtered_data)
+        
+        self.filtered_data = filtered_data
+    
+    def get_filtered_data(self) -> Optional[pd.DataFrame]:
+        """Get currently filtered data"""
+        return self.filtered_data
+    
+    def get_filter_descriptions(self) -> List[str]:
+        """Get descriptions of all active filters"""
+        return [filter_obj.get_description() for filter_obj in self.filters.values()]
+    
+    def get_filter_statistics(self) -> Dict[str, Any]:
+        """Get statistics about filtering results"""
+        if self.original_data is None or self.filtered_data is None:
+            return {}
+        
+        original_count = len(self.original_data)
+        filtered_count = len(self.filtered_data)
+        
+        return {
+            'original_count': original_count,
+            'filtered_count': filtered_count,
+            'filtered_percentage': (filtered_count / original_count * 100) if original_count > 0 else 0,
+            'removed_count': original_count - filtered_count,
+            'removed_percentage': ((original_count - filtered_count) / original_count * 100) if original_count > 0 else 0
+        }
+    
+    def has_filters(self) -> bool:
+        """Check if any filters are active"""
+        return len(self.filters) > 0
+    
+    def get_available_columns(self) -> List[str]:
+        """Get list of available columns for filtering"""
+        if self.original_data is None:
+            return []
+        return list(self.original_data.columns)
+
+
+class DataProcessor:
+    """Main data processor class with filtering capabilities"""
+    
+    def __init__(self):
+        self.filter_manager = FilterManager()
+    
+    def set_data(self, data: pd.DataFrame) -> None:
+        """Set data for processing"""
+        self.filter_manager.set_data(data)
+    
+    def add_value_filter(self, column: str, value: Union[str, float, int]) -> None:
+        """Add value filter"""
+        filter_obj = ValueFilter(column, value)
+        self.filter_manager.add_filter(filter_obj)
+    
+    def add_range_filter(self, column: str, min_value: float, max_value: float) -> None:
+        """Add range filter"""
+        filter_obj = RangeFilter(column, min_value, max_value)
+        self.filter_manager.add_filter(filter_obj)
+    
+    def remove_filter(self, filter_id: str) -> None:
+        """Remove filter by ID"""
+        self.filter_manager.remove_filter(filter_id)
+    
+    def clear_all_filters(self) -> None:
+        """Clear all filters"""
+        self.filter_manager.clear_all_filters()
+    
+    def get_processed_data(self) -> Optional[pd.DataFrame]:
+        """Get processed (filtered) data"""
+        return self.filter_manager.get_filtered_data()
+    
+    def get_filter_info(self) -> Dict[str, Any]:
+        """Get comprehensive filter information"""
+        return {
+            'descriptions': self.filter_manager.get_filter_descriptions(),
+            'statistics': self.filter_manager.get_filter_statistics(),
+            'has_filters': self.filter_manager.has_filters(),
+            'available_columns': self.filter_manager.get_available_columns()
+        }
