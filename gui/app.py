@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import numpy as np
+import os
 
 from core.data_loader import DataLoader
 from core.plotter import Plotter
@@ -450,6 +451,35 @@ class ColorMapApp:
         
         # Initialize transformation UI state
         self.on_transform_type_change(None)
+        
+        # Export controls
+        export_frame = ttk.LabelFrame(control_frame, text="Export", padding=10)
+        export_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Export buttons
+        ttk.Button(
+            export_frame,
+            text="Export PNG",
+            command=self.export_png
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(
+            export_frame,
+            text="Export CSV",
+            command=self.export_csv
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(
+            export_frame,
+            text="Save Settings",
+            command=self.save_settings
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(
+            export_frame,
+            text="Load Settings",
+            command=self.load_settings
+        ).pack(side=tk.LEFT)
         
         # Plot area
         plot_frame = ttk.LabelFrame(main_frame, text="Plot", padding=5)
@@ -1243,6 +1273,179 @@ class ColorMapApp:
         self.z_combo['values'] = available_columns
         self.filter_column_combo['values'] = available_columns
         self.transform_column_combo['values'] = available_columns
+    
+    def export_png(self):
+        """Export current plot as PNG image"""
+        if self.current_axes is None:
+            messagebox.showwarning("Warning", "Please create a plot first")
+            return
+        
+        # Open file dialog
+        filename = filedialog.asksaveasfilename(
+            title="Save PNG Image",
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")]
+        )
+        
+        if filename:
+            try:
+                # Save the current figure
+                self.figure.savefig(
+                    filename,
+                    dpi=300,  # High resolution
+                    bbox_inches='tight',  # Tight bounding box
+                    facecolor='white',  # White background
+                    edgecolor='none'
+                )
+                messagebox.showinfo("Success", f"Image saved to:\n{filename}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save image:\n{str(e)}")
+    
+    def export_csv(self):
+        """Export current data as CSV file"""
+        if self.data_loader.get_data() is None:
+            messagebox.showwarning("Warning", "Please load data first")
+            return
+        
+        # Ask user whether to include filtered data only
+        include_filtered = messagebox.askyesno(
+            "Export Options",
+            "Export filtered data only?\n\n"
+            "Yes: Export only data that passes current filters\n"
+            "No: Export all data (including transformations but ignoring filters)"
+        )
+        
+        # Open file dialog
+        filename = filedialog.asksaveasfilename(
+            title="Save CSV Data",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        
+        if filename:
+            try:
+                self.data_processor.export_csv(filename, include_filtered=include_filtered)
+                
+                # Get export info for user
+                if include_filtered:
+                    exported_data = self.data_processor.get_processed_data()
+                else:
+                    exported_data = self.data_processor.transformed_data
+                
+                if exported_data is not None:
+                    row_count = len(exported_data)
+                    col_count = len(exported_data.columns)
+                    messagebox.showinfo(
+                        "Success", 
+                        f"Data exported to:\n{filename}\n\n"
+                        f"Rows: {row_count}\nColumns: {col_count}"
+                    )
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to export data:\n{str(e)}")
+    
+    def save_settings(self):
+        """Save current settings to JSON file"""
+        # Open file dialog
+        filename = filedialog.asksaveasfilename(
+            title="Save Settings",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if filename:
+            try:
+                # Gather GUI settings
+                gui_settings = {
+                    'axis_settings': {
+                        'x_column': self.x_var.get(),
+                        'y_column': self.y_var.get(),
+                        'z_column': self.z_var.get(),
+                        'colormap': self.colormap_var.get()
+                    },
+                    'scale_settings': {
+                        'x_scale': self.x_scale_var.get(),
+                        'y_scale': self.y_scale_var.get(),
+                        'z_scale': self.z_scale_var.get(),
+                        'scientific_notation': self.scientific_notation_var.get()
+                    },
+                    'range_settings': {
+                        'auto_range': self.auto_range_var.get(),
+                        'x_min': self.x_min_var.get(),
+                        'x_max': self.x_max_var.get(),
+                        'y_min': self.y_min_var.get(),
+                        'y_max': self.y_max_var.get(),
+                        'z_min': self.z_min_var.get(),
+                        'z_max': self.z_max_var.get()
+                    }
+                }
+                
+                # Save settings using data processor
+                self.data_processor.save_settings(filename, gui_settings)
+                
+                messagebox.showinfo("Success", f"Settings saved to:\n{filename}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save settings:\n{str(e)}")
+    
+    def load_settings(self):
+        """Load settings from JSON file"""
+        # Open file dialog
+        filename = filedialog.askopenfilename(
+            title="Load Settings",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if filename:
+            try:
+                # Load settings using data processor
+                settings = self.data_processor.load_settings(filename)
+                
+                # Restore data processor state (filters and transformations)
+                self.data_processor.restore_state(settings)
+                
+                # Restore GUI settings if available
+                if 'axis_settings' in settings:
+                    axis_settings = settings['axis_settings']
+                    self.x_var.set(axis_settings.get('x_column', ''))
+                    self.y_var.set(axis_settings.get('y_column', ''))
+                    self.z_var.set(axis_settings.get('z_column', ''))
+                    self.colormap_var.set(axis_settings.get('colormap', 'plasma'))
+                
+                if 'scale_settings' in settings:
+                    scale_settings = settings['scale_settings']
+                    self.x_scale_var.set(scale_settings.get('x_scale', 'linear'))
+                    self.y_scale_var.set(scale_settings.get('y_scale', 'linear'))
+                    self.z_scale_var.set(scale_settings.get('z_scale', 'linear'))
+                    self.scientific_notation_var.set(scale_settings.get('scientific_notation', False))
+                
+                if 'range_settings' in settings:
+                    range_settings = settings['range_settings']
+                    self.auto_range_var.set(range_settings.get('auto_range', True))
+                    self.x_min_var.set(range_settings.get('x_min', ''))
+                    self.x_max_var.set(range_settings.get('x_max', ''))
+                    self.y_min_var.set(range_settings.get('y_min', ''))
+                    self.y_max_var.set(range_settings.get('y_max', ''))
+                    self.z_min_var.set(range_settings.get('z_min', ''))
+                    self.z_max_var.set(range_settings.get('z_max', ''))
+                
+                # Update UI to reflect restored state
+                self.update_column_combos()
+                self.update_filter_status()
+                self.update_filter_list()
+                self.update_transformation_status()
+                self.update_transformation_list()
+                self.on_auto_range_toggle()
+                
+                # Refresh plot if axes are selected
+                if all([self.x_var.get(), self.y_var.get(), self.z_var.get()]):
+                    self.refresh_plot_with_filters()
+                
+                messagebox.showinfo("Success", f"Settings loaded from:\n{filename}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load settings:\n{str(e)}")
 
 
 def run_gui():

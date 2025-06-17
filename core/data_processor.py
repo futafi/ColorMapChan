@@ -6,8 +6,10 @@ Phase 6: Data transformation functionality
 
 import pandas as pd
 import numpy as np
+import json
 from typing import Optional, List, Dict, Any, Union
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 
 class Transformation(ABC):
@@ -358,3 +360,111 @@ class DataProcessor:
             'has_filters': self.filter_manager.has_filters(),
             'available_columns': self.filter_manager.get_available_columns()
         }
+    
+    def export_csv(self, file_path: str, include_filtered: bool = True) -> None:
+        """Export data to CSV file"""
+        if include_filtered:
+            # Export filtered data
+            data_to_export = self.get_processed_data()
+            if data_to_export is None:
+                raise ValueError("No processed data available for export")
+        else:
+            # Export all transformed data (before filtering)
+            data_to_export = self.transformed_data
+            if data_to_export is None:
+                raise ValueError("No data available for export")
+        
+        # Save to CSV
+        data_to_export.to_csv(file_path, index=False)
+    
+    def get_current_state(self) -> Dict[str, Any]:
+        """Get current state for settings save/load"""
+        filter_info = self.get_filter_info()
+        transform_info = self.get_transformation_info()
+        
+        return {
+            'transformations': transform_info['transformations'],
+            'filters': filter_info['filter_list'],
+            'has_transformations': transform_info['has_transformations'],
+            'has_filters': filter_info['has_filters']
+        }
+    
+    def save_settings(self, file_path: str, additional_settings: Optional[Dict[str, Any]] = None) -> None:
+        """Save current settings to JSON file"""
+        settings = {
+            'data_processor_state': self.get_current_state(),
+            'version': '1.0'
+        }
+        
+        # Add additional settings (GUI state like axis selections, colormap, etc.)
+        if additional_settings:
+            settings.update(additional_settings)
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+    
+    def load_settings(self, file_path: str) -> Dict[str, Any]:
+        """Load settings from JSON file"""
+        if not Path(file_path).exists():
+            raise FileNotFoundError(f"Settings file not found: {file_path}")
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            settings = json.load(f)
+        
+        return settings
+    
+    def restore_state(self, settings: Dict[str, Any]) -> None:
+        """Restore data processor state from settings"""
+        if 'data_processor_state' not in settings:
+            raise ValueError("Invalid settings file: missing data_processor_state")
+        
+        state = settings['data_processor_state']
+        
+        # Clear current state
+        self.clear_all_transformations()
+        self.clear_all_filters()
+        
+        # Restore transformations
+        if state.get('has_transformations', False):
+            transformations = state.get('transformations', [])
+            for transform in transformations:
+                try:
+                    if transform['type'] == 'abs':
+                        self.add_abs_transformation(transform['source_column'])
+                    elif transform['type'].startswith('diff'):
+                        # Extract order from type (e.g., 'diff1' -> 1)
+                        order = int(transform['type'].replace('diff', ''))
+                        self.add_diff_transformation(transform['source_column'], order)
+                except Exception as e:
+                    # Skip invalid transformations but continue with others
+                    print(f"Warning: Could not restore transformation {transform}: {e}")
+        
+        # Restore filters
+        if state.get('has_filters', False):
+            filters = state.get('filters', [])
+            for filter_item in filters:
+                try:
+                    if filter_item['type'] == 'value':
+                        # Extract value from description (e.g., "A == 3" -> 3)
+                        description = filter_item['description']
+                        parts = description.split(' == ')
+                        if len(parts) == 2:
+                            column = parts[0]
+                            value_str = parts[1]
+                            try:
+                                value = float(value_str)
+                            except ValueError:
+                                value = value_str
+                            self.add_value_filter(column, value)
+                    elif filter_item['type'] == 'range':
+                        # Extract range from description (e.g., "2 <= A <= 4" -> min=2, max=4)
+                        description = filter_item['description']
+                        parts = description.split(' <= ')
+                        if len(parts) == 3:
+                            min_val = float(parts[0])
+                            column = parts[1]
+                            max_val = float(parts[2])
+                            self.add_range_filter(column, min_val, max_val)
+                except Exception as e:
+                    # Skip invalid filters but continue with others
+                    print(f"Warning: Could not restore filter {filter_item}: {e}")

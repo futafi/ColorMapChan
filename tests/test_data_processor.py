@@ -7,6 +7,9 @@ Phase 6: Transformation functionality tests
 import unittest
 import pandas as pd
 import numpy as np
+import tempfile
+import os
+import json
 from core.data_processor import (
     DataProcessor, FilterManager, ValueFilter, RangeFilter,
     Transformation, AbsTransformation, DiffTransformation
@@ -604,6 +607,193 @@ class TestDataProcessorTransformations(unittest.TestCase):
         self.assertEqual(len(processed_data), 1)
         self.assertEqual(processed_data.iloc[0]['A'], -2)
         self.assertEqual(processed_data.iloc[0][abs_col], 2.0)
+
+
+class TestDataProcessorExport(unittest.TestCase):
+    """Test DataProcessor export functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.data = pd.DataFrame({
+            'A': [1, -2, 3, -4, 5],
+            'B': [10, 20, 30, 40, 50],
+            'C': ['x', 'y', 'z', 'x', 'y']
+        })
+        self.processor = DataProcessor()
+        self.processor.set_data(self.data)
+        
+        # Create temporary directory for test files
+        self.temp_dir = tempfile.mkdtemp()
+    
+    def tearDown(self):
+        """Clean up temporary files"""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+    
+    def test_export_csv_filtered(self):
+        """Test CSV export with filtering"""
+        # Add transformation and filter
+        self.processor.add_abs_transformation('A')
+        self.processor.add_value_filter('A_abs', 2.0)
+        
+        # Export filtered data
+        csv_path = os.path.join(self.temp_dir, 'test_filtered.csv')
+        self.processor.export_csv(csv_path, include_filtered=True)
+        
+        # Verify file exists
+        self.assertTrue(os.path.exists(csv_path))
+        
+        # Load and verify content
+        exported_data = pd.read_csv(csv_path)
+        self.assertEqual(len(exported_data), 1)  # Only one row should pass filter
+        self.assertEqual(exported_data.iloc[0]['A'], -2)
+        self.assertEqual(exported_data.iloc[0]['A_abs'], 2.0)
+    
+    def test_export_csv_all_data(self):
+        """Test CSV export without filtering"""
+        # Add transformation and filter
+        self.processor.add_abs_transformation('A')
+        self.processor.add_value_filter('A_abs', 2.0)
+        
+        # Export all transformed data (ignoring filters)
+        csv_path = os.path.join(self.temp_dir, 'test_all.csv')
+        self.processor.export_csv(csv_path, include_filtered=False)
+        
+        # Verify file exists
+        self.assertTrue(os.path.exists(csv_path))
+        
+        # Load and verify content
+        exported_data = pd.read_csv(csv_path)
+        self.assertEqual(len(exported_data), 5)  # All original rows
+        self.assertIn('A_abs', exported_data.columns)  # Transformation column included
+    
+    def test_export_csv_no_data(self):
+        """Test CSV export with no data"""
+        empty_processor = DataProcessor()
+        
+        csv_path = os.path.join(self.temp_dir, 'test_empty.csv')
+        
+        with self.assertRaises(ValueError):
+            empty_processor.export_csv(csv_path)
+    
+    def test_save_and_load_settings(self):
+        """Test settings save and load functionality"""
+        # Set up some state
+        self.processor.add_abs_transformation('A')
+        self.processor.add_diff_transformation('B', 1)
+        self.processor.add_value_filter('A_abs', 2.0)
+        self.processor.add_range_filter('B', 20, 40)
+        
+        # Save settings
+        settings_path = os.path.join(self.temp_dir, 'test_settings.json')
+        additional_settings = {
+            'test_setting': 'test_value',
+            'axis_settings': {
+                'x_column': 'A',
+                'y_column': 'B',
+                'colormap': 'viridis'
+            }
+        }
+        self.processor.save_settings(settings_path, additional_settings)
+        
+        # Verify file exists
+        self.assertTrue(os.path.exists(settings_path))
+        
+        # Load settings
+        loaded_settings = self.processor.load_settings(settings_path)
+        
+        # Verify structure
+        self.assertIn('data_processor_state', loaded_settings)
+        self.assertIn('version', loaded_settings)
+        self.assertIn('test_setting', loaded_settings)
+        self.assertEqual(loaded_settings['test_setting'], 'test_value')
+        
+        # Verify data processor state
+        state = loaded_settings['data_processor_state']
+        self.assertTrue(state['has_transformations'])
+        self.assertTrue(state['has_filters'])
+        self.assertEqual(len(state['transformations']), 2)
+        self.assertEqual(len(state['filters']), 2)
+    
+    def test_restore_state(self):
+        """Test state restoration from settings"""
+        # Set up initial state
+        self.processor.add_abs_transformation('A')
+        self.processor.add_value_filter('A_abs', 2.0)
+        
+        # Save settings
+        settings_path = os.path.join(self.temp_dir, 'restore_test.json')
+        self.processor.save_settings(settings_path)
+        
+        # Clear state
+        self.processor.clear_all_transformations()
+        self.processor.clear_all_filters()
+        
+        # Verify state is cleared
+        transform_info = self.processor.get_transformation_info()
+        filter_info = self.processor.get_filter_info()
+        self.assertFalse(transform_info['has_transformations'])
+        self.assertFalse(filter_info['has_filters'])
+        
+        # Load and restore settings
+        settings = self.processor.load_settings(settings_path)
+        self.processor.restore_state(settings)
+        
+        # Verify state is restored
+        transform_info = self.processor.get_transformation_info()
+        filter_info = self.processor.get_filter_info()
+        self.assertTrue(transform_info['has_transformations'])
+        self.assertTrue(filter_info['has_filters'])
+        
+        # Verify specific transformations and filters
+        transformations = transform_info['transformations']
+        filters = filter_info['filter_list']
+        
+        self.assertEqual(len(transformations), 1)
+        self.assertEqual(transformations[0]['type'], 'abs')
+        self.assertEqual(transformations[0]['source_column'], 'A')
+        
+        self.assertEqual(len(filters), 1)
+        self.assertEqual(filters[0]['type'], 'value')
+        self.assertEqual(filters[0]['column'], 'A_abs')
+    
+    def test_load_nonexistent_settings(self):
+        """Test loading non-existent settings file"""
+        nonexistent_path = os.path.join(self.temp_dir, 'nonexistent.json')
+        
+        with self.assertRaises(FileNotFoundError):
+            self.processor.load_settings(nonexistent_path)
+    
+    def test_restore_invalid_settings(self):
+        """Test restoring from invalid settings"""
+        # Create invalid settings file
+        invalid_settings_path = os.path.join(self.temp_dir, 'invalid.json')
+        with open(invalid_settings_path, 'w') as f:
+            json.dump({'invalid': 'settings'}, f)
+        
+        settings = self.processor.load_settings(invalid_settings_path)
+        
+        with self.assertRaises(ValueError):
+            self.processor.restore_state(settings)
+    
+    def test_get_current_state(self):
+        """Test getting current state"""
+        # Add some state
+        self.processor.add_abs_transformation('A')
+        self.processor.add_value_filter('A_abs', 2.0)
+        
+        state = self.processor.get_current_state()
+        
+        # Verify state structure
+        self.assertIn('transformations', state)
+        self.assertIn('filters', state)
+        self.assertIn('has_transformations', state)
+        self.assertIn('has_filters', state)
+        
+        self.assertTrue(state['has_transformations'])
+        self.assertTrue(state['has_filters'])
+        self.assertEqual(len(state['transformations']), 1)
+        self.assertEqual(len(state['filters']), 1)
 
 
 if __name__ == '__main__':
