@@ -58,6 +58,12 @@ class ColorMapApp:
         self.filter_max_var = tk.StringVar()
         self.filter_status_var = tk.StringVar(value="No filters applied")
         
+        # Transformation variables
+        self.transform_column_var = tk.StringVar()
+        self.transform_type_var = tk.StringVar(value='abs')
+        self.diff_order_var = tk.StringVar(value='1')
+        self.transform_status_var = tk.StringVar(value="No transformations applied")
+        
         # Range setting variables
         self.x_min_var = tk.StringVar()
         self.x_max_var = tk.StringVar()
@@ -345,6 +351,106 @@ class ColorMapApp:
         # Initialize filter UI state
         self.on_filter_type_change(None)
         
+        # Data transformation controls
+        transform_frame = ttk.LabelFrame(control_frame, text="Data Transformation", padding=10)
+        transform_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Transformation type selection
+        ttk.Label(transform_frame, text="Column:").grid(row=0, column=0, padx=(0, 5))
+        transform_column_combo = ttk.Combobox(
+            transform_frame, 
+            textvariable=self.transform_column_var, 
+            width=12,
+            state="readonly"
+        )
+        transform_column_combo.grid(row=0, column=1, padx=(0, 10))
+        
+        ttk.Label(transform_frame, text="Type:").grid(row=0, column=2, padx=(0, 5))
+        transform_type_combo = ttk.Combobox(
+            transform_frame,
+            textvariable=self.transform_type_var,
+            values=['abs', 'diff'],
+            width=8,
+            state="readonly"
+        )
+        transform_type_combo.grid(row=0, column=3, padx=(0, 10))
+        transform_type_combo.bind('<<ComboboxSelected>>', self.on_transform_type_change)
+        
+        # Diff order control (for diff transformations)
+        ttk.Label(transform_frame, text="Order:").grid(row=0, column=4, padx=(0, 5))
+        self.diff_order_entry = ttk.Entry(transform_frame, textvariable=self.diff_order_var, width=6)
+        self.diff_order_entry.grid(row=0, column=5, padx=(0, 10))
+        
+        # Transform action buttons
+        ttk.Button(
+            transform_frame,
+            text="Apply Transform",
+            command=self.apply_transformation
+        ).grid(row=0, column=6, padx=(10, 5))
+        
+        ttk.Button(
+            transform_frame,
+            text="Clear All",
+            command=self.clear_all_transformations
+        ).grid(row=0, column=7, padx=(5, 0))
+        
+        # Transform status display
+        ttk.Label(transform_frame, text="Status:").grid(row=1, column=0, padx=(0, 5), pady=(5, 0), sticky=tk.W)
+        transform_status_label = ttk.Label(
+            transform_frame, 
+            textvariable=self.transform_status_var,
+            relief=tk.SUNKEN,
+            anchor=tk.W
+        )
+        transform_status_label.grid(row=1, column=1, columnspan=6, padx=(0, 5), pady=(5, 0), sticky=tk.EW)
+        
+        # Active transformations list
+        transforms_list_frame = ttk.LabelFrame(control_frame, text="Active Transformations", padding=10)
+        transforms_list_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Create listbox for transformations with scrollbar
+        transform_list_container = ttk.Frame(transforms_list_frame)
+        transform_list_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Listbox for active transformations
+        self.transform_listbox = tk.Listbox(
+            transform_list_container,
+            height=3,
+            selectmode=tk.SINGLE
+        )
+        self.transform_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Scrollbar for transform listbox
+        transform_scrollbar = ttk.Scrollbar(
+            transform_list_container,
+            orient=tk.VERTICAL,
+            command=self.transform_listbox.yview
+        )
+        transform_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.transform_listbox.config(yscrollcommand=transform_scrollbar.set)
+        
+        # Transform list action buttons
+        transform_actions_frame = ttk.Frame(transforms_list_frame)
+        transform_actions_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        ttk.Button(
+            transform_actions_frame,
+            text="Remove Selected",
+            command=self.remove_selected_transformation
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(
+            transform_actions_frame,
+            text="Clear All Transforms",
+            command=self.clear_all_transformations
+        ).pack(side=tk.LEFT)
+        
+        # Store transformation UI components
+        self.transform_column_combo = transform_column_combo
+        
+        # Initialize transformation UI state
+        self.on_transform_type_change(None)
+        
         # Plot area
         plot_frame = ttk.LabelFrame(main_frame, text="Plot", padding=5)
         plot_frame.pack(fill=tk.BOTH, expand=True)
@@ -394,6 +500,7 @@ class ColorMapApp:
                 self.y_combo['values'] = columns
                 self.z_combo['values'] = columns
                 self.filter_column_combo['values'] = columns
+                self.transform_column_combo['values'] = columns
                 
                 # Initialize data processor with loaded data
                 self.data_processor.set_data(self.data_loader.get_data())
@@ -1012,6 +1119,130 @@ class ColorMapApp:
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to refresh plot with filters:\n{str(e)}")
+    
+    def on_transform_type_change(self, event):
+        """Handle transformation type change"""
+        transform_type = self.transform_type_var.get()
+        
+        if transform_type == 'abs':
+            # Disable order entry for abs transformation
+            self.diff_order_entry.config(state='disabled')
+        elif transform_type == 'diff':
+            # Enable order entry for diff transformation
+            self.diff_order_entry.config(state='normal')
+    
+    def apply_transformation(self):
+        """Apply a new transformation"""
+        column = self.transform_column_var.get()
+        transform_type = self.transform_type_var.get()
+        
+        if not column:
+            messagebox.showwarning("Warning", "Please select a column to transform")
+            return
+        
+        try:
+            if transform_type == 'abs':
+                result_column = self.data_processor.add_abs_transformation(column)
+            elif transform_type == 'diff':
+                order_str = self.diff_order_var.get()
+                if not order_str:
+                    messagebox.showwarning("Warning", "Please enter a valid order for diff transformation")
+                    return
+                
+                order = int(order_str)
+                result_column = self.data_processor.add_diff_transformation(column, order)
+            else:
+                messagebox.showwarning("Warning", "Please select a valid transformation type")
+                return
+            
+            # Update combo boxes with new columns
+            self.update_column_combos()
+            
+            # Update transformation status and list
+            self.update_transformation_status()
+            self.update_transformation_list()
+            
+            # Refresh plot with transformed data
+            self.refresh_plot_with_filters()
+            
+            messagebox.showinfo("Success", f"Transformation applied: {result_column}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to apply transformation:\n{str(e)}")
+    
+    def clear_all_transformations(self):
+        """Clear all transformations"""
+        self.data_processor.clear_all_transformations()
+        self.update_column_combos()
+        self.update_transformation_status()
+        self.update_transformation_list()
+        self.refresh_plot_with_filters()
+    
+    def remove_selected_transformation(self):
+        """Remove the selected transformation from the list"""
+        selection = self.transform_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select a transformation to remove")
+            return
+        
+        try:
+            # Get transformation info and selected index
+            transform_info = self.data_processor.get_transformation_info()
+            transformations = transform_info['transformations']
+            
+            if selection[0] < len(transformations):
+                selected_transform = transformations[selection[0]]
+                result_column = selected_transform['result_column']
+                
+                # Remove the transformation
+                self.data_processor.remove_transformation(result_column)
+                
+                # Update UI and refresh plot
+                self.update_column_combos()
+                self.update_transformation_status()
+                self.update_transformation_list()
+                self.refresh_plot_with_filters()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove transformation:\n{str(e)}")
+    
+    def update_transformation_list(self):
+        """Update the transformation list display"""
+        # Clear current list
+        self.transform_listbox.delete(0, tk.END)
+        
+        # Get current transformations
+        transform_info = self.data_processor.get_transformation_info()
+        transformations = transform_info['transformations']
+        
+        # Add transformations to listbox
+        for transform in transformations:
+            display_text = f"{transform['type'].title()}: {transform['description']}"
+            self.transform_listbox.insert(tk.END, display_text)
+    
+    def update_transformation_status(self):
+        """Update transformation status display"""
+        transform_info = self.data_processor.get_transformation_info()
+        
+        if not transform_info['has_transformations']:
+            self.transform_status_var.set("No transformations applied")
+        else:
+            transformations = transform_info['transformations']
+            
+            status_text = f"Transformations: {len(transformations)} active"
+            self.transform_status_var.set(status_text)
+    
+    def update_column_combos(self):
+        """Update all column combo boxes with available columns including transformed ones"""
+        transform_info = self.data_processor.get_transformation_info()
+        available_columns = transform_info['available_columns']
+        
+        # Update all combo boxes
+        self.x_combo['values'] = available_columns
+        self.y_combo['values'] = available_columns
+        self.z_combo['values'] = available_columns
+        self.filter_column_combo['values'] = available_columns
+        self.transform_column_combo['values'] = available_columns
 
 
 def run_gui():

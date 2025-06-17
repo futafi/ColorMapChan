@@ -1,13 +1,15 @@
 """
 Tests for data_processor module
-Phase 5.1: Basic filtering functionality tests
+Phase 5: Filtering functionality tests
+Phase 6: Transformation functionality tests
 """
 
 import unittest
 import pandas as pd
 import numpy as np
 from core.data_processor import (
-    DataProcessor, FilterManager, ValueFilter, RangeFilter
+    DataProcessor, FilterManager, ValueFilter, RangeFilter,
+    Transformation, AbsTransformation, DiffTransformation
 )
 
 
@@ -363,6 +365,245 @@ class TestFilterManagerAdvanced(unittest.TestCase):
         filter_list = self.manager.get_filter_list()
         self.assertEqual(len(filter_list), 1)
         self.assertEqual(filter_list[0]['type'], 'range')
+
+
+class TestAbsTransformation(unittest.TestCase):
+    """Test AbsTransformation class"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.data = pd.DataFrame({
+            'A': [1, -2, 3, -4, 5],
+            'B': [-10, 20, -30, 40, -50],
+            'C': ['x', 'y', 'z', 'x', 'y']
+        })
+    
+    def test_abs_transformation_basic(self):
+        """Test basic absolute value transformation"""
+        transformation = AbsTransformation('A')
+        result = transformation.apply(self.data)
+        
+        # Check result column exists
+        self.assertIn('A_abs', result.columns)
+        
+        # Check values are correct
+        expected = [1, 2, 3, 4, 5]
+        actual = result['A_abs'].tolist()
+        self.assertEqual(actual, expected)
+        
+        # Check original column is unchanged
+        original = [1, -2, 3, -4, 5]
+        self.assertEqual(result['A'].tolist(), original)
+    
+    def test_abs_transformation_description(self):
+        """Test transformation description"""
+        transformation = AbsTransformation('B')
+        description = transformation.get_description()
+        
+        self.assertEqual(description, "abs(B) → B_abs")
+    
+    def test_abs_transformation_invalid_column(self):
+        """Test transformation with invalid column"""
+        transformation = AbsTransformation('INVALID')
+        
+        with self.assertRaises(ValueError):
+            transformation.apply(self.data)
+    
+    def test_abs_transformation_non_numeric(self):
+        """Test transformation with non-numeric column"""
+        transformation = AbsTransformation('C')
+        
+        with self.assertRaises(ValueError):
+            transformation.apply(self.data)
+
+
+class TestDiffTransformation(unittest.TestCase):
+    """Test DiffTransformation class"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.data = pd.DataFrame({
+            'A': [1, 3, 6, 10, 15],  # diff: [2, 3, 4, 5]
+            'B': [10, 20, 30, 40, 50],  # diff: [10, 10, 10, 10]
+            'C': ['x', 'y', 'z', 'x', 'y']
+        })
+    
+    def test_diff_transformation_order1(self):
+        """Test first-order difference transformation"""
+        transformation = DiffTransformation('A', 1)
+        result = transformation.apply(self.data)
+        
+        # Check result column exists
+        self.assertIn('A_diff1', result.columns)
+        
+        # Check values are correct (first value should be NaN)
+        expected = [np.nan, 2.0, 3.0, 4.0, 5.0]
+        actual = result['A_diff1'].tolist()
+        
+        self.assertTrue(np.isnan(actual[0]))
+        self.assertEqual(actual[1:], expected[1:])
+    
+    def test_diff_transformation_order2(self):
+        """Test second-order difference transformation"""
+        transformation = DiffTransformation('A', 2)
+        result = transformation.apply(self.data)
+        
+        # Check result column exists
+        self.assertIn('A_diff2', result.columns)
+        
+        # Check values are correct (first two values should be NaN)
+        actual = result['A_diff2'].tolist()
+        
+        self.assertTrue(np.isnan(actual[0]))
+        self.assertTrue(np.isnan(actual[1]))
+        self.assertEqual(actual[2], 1.0)  # diff([2, 3, 4, 5]) = [1, 1, 1]
+        self.assertEqual(actual[3], 1.0)
+        self.assertEqual(actual[4], 1.0)
+    
+    def test_diff_transformation_description(self):
+        """Test transformation descriptions"""
+        transformation1 = DiffTransformation('A', 1)
+        description1 = transformation1.get_description()
+        self.assertEqual(description1, "diff(A) → A_diff1")
+        
+        transformation2 = DiffTransformation('A', 2)
+        description2 = transformation2.get_description()
+        self.assertEqual(description2, "diff2(A) → A_diff2")
+    
+    def test_diff_transformation_invalid_column(self):
+        """Test transformation with invalid column"""
+        transformation = DiffTransformation('INVALID')
+        
+        with self.assertRaises(ValueError):
+            transformation.apply(self.data)
+    
+    def test_diff_transformation_non_numeric(self):
+        """Test transformation with non-numeric column"""
+        transformation = DiffTransformation('C')
+        
+        with self.assertRaises(ValueError):
+            transformation.apply(self.data)
+    
+    def test_diff_transformation_order_validation(self):
+        """Test that order is properly validated"""
+        # Test that negative order becomes 1
+        transformation = DiffTransformation('A', -1)
+        self.assertEqual(transformation.order, 1)
+        
+        # Test that zero order becomes 1
+        transformation = DiffTransformation('A', 0)
+        self.assertEqual(transformation.order, 1)
+
+
+class TestDataProcessorTransformations(unittest.TestCase):
+    """Test DataProcessor transformation functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.data = pd.DataFrame({
+            'A': [1, -2, 3, -4, 5],
+            'B': [10, 20, 30, 40, 50],
+            'C': ['x', 'y', 'z', 'x', 'y']
+        })
+        self.processor = DataProcessor()
+        self.processor.set_data(self.data)
+    
+    def test_add_abs_transformation(self):
+        """Test adding absolute value transformation"""
+        result_column = self.processor.add_abs_transformation('A')
+        
+        self.assertEqual(result_column, 'A_abs')
+        
+        # Check transformation info
+        transform_info = self.processor.get_transformation_info()
+        self.assertTrue(transform_info['has_transformations'])
+        self.assertEqual(len(transform_info['transformations']), 1)
+        
+        transformation = transform_info['transformations'][0]
+        self.assertEqual(transformation['result_column'], 'A_abs')
+        self.assertEqual(transformation['source_column'], 'A')
+        self.assertEqual(transformation['type'], 'abs')
+    
+    def test_add_diff_transformation(self):
+        """Test adding difference transformation"""
+        result_column = self.processor.add_diff_transformation('B', 1)
+        
+        self.assertEqual(result_column, 'B_diff1')
+        
+        # Check transformation info
+        transform_info = self.processor.get_transformation_info()
+        self.assertTrue(transform_info['has_transformations'])
+        self.assertEqual(len(transform_info['transformations']), 1)
+        
+        transformation = transform_info['transformations'][0]
+        self.assertEqual(transformation['result_column'], 'B_diff1')
+        self.assertEqual(transformation['source_column'], 'B')
+        self.assertEqual(transformation['type'], 'diff1')
+    
+    def test_multiple_transformations(self):
+        """Test applying multiple transformations"""
+        abs_col = self.processor.add_abs_transformation('A')
+        diff_col = self.processor.add_diff_transformation('B', 1)
+        
+        # Check both transformations are tracked
+        transform_info = self.processor.get_transformation_info()
+        self.assertEqual(len(transform_info['transformations']), 2)
+        
+        # Check available columns include both new columns
+        available_columns = transform_info['available_columns']
+        self.assertIn(abs_col, available_columns)
+        self.assertIn(diff_col, available_columns)
+    
+    def test_remove_transformation(self):
+        """Test removing a transformation"""
+        result_column = self.processor.add_abs_transformation('A')
+        
+        # Verify transformation exists
+        transform_info = self.processor.get_transformation_info()
+        self.assertTrue(transform_info['has_transformations'])
+        
+        # Remove transformation
+        self.processor.remove_transformation(result_column)
+        
+        # Verify transformation is removed
+        transform_info = self.processor.get_transformation_info()
+        self.assertFalse(transform_info['has_transformations'])
+    
+    def test_clear_all_transformations(self):
+        """Test clearing all transformations"""
+        self.processor.add_abs_transformation('A')
+        self.processor.add_diff_transformation('B', 1)
+        
+        # Verify transformations exist
+        transform_info = self.processor.get_transformation_info()
+        self.assertEqual(len(transform_info['transformations']), 2)
+        
+        # Clear all transformations
+        self.processor.clear_all_transformations()
+        
+        # Verify all transformations are removed
+        transform_info = self.processor.get_transformation_info()
+        self.assertFalse(transform_info['has_transformations'])
+    
+    def test_transformation_with_filtering(self):
+        """Test that transformations work with filtering"""
+        # Add transformation
+        abs_col = self.processor.add_abs_transformation('A')
+        
+        # Add filter on transformed column
+        self.processor.add_value_filter(abs_col, 2.0)
+        
+        # Check that filtering works on transformed data
+        filter_info = self.processor.get_filter_info()
+        self.assertTrue(filter_info['has_filters'])
+        
+        processed_data = self.processor.get_processed_data()
+        self.assertIsNotNone(processed_data)
+        
+        # Should have one row where A_abs == 2.0 (original A == -2)
+        self.assertEqual(len(processed_data), 1)
+        self.assertEqual(processed_data.iloc[0]['A'], -2)
+        self.assertEqual(processed_data.iloc[0][abs_col], 2.0)
 
 
 if __name__ == '__main__':

@@ -1,11 +1,92 @@
 """
 Data processor for filtering and transformations
-Phase 5.1: Basic filtering functionality
+Phase 5: Filtering functionality
+Phase 6: Data transformation functionality
 """
 
 import pandas as pd
+import numpy as np
 from typing import Optional, List, Dict, Any, Union
 from abc import ABC, abstractmethod
+
+
+class Transformation(ABC):
+    """Abstract base class for data transformations"""
+    
+    def __init__(self, source_column: str, name: str):
+        self.source_column = source_column
+        self.name = name
+        self.result_column = f"{source_column}_{name}"
+    
+    @abstractmethod
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply transformation to data and return DataFrame with new column"""
+        pass
+    
+    @abstractmethod
+    def get_description(self) -> str:
+        """Get human-readable description of transformation"""
+        pass
+    
+    def validate_column(self, data: pd.DataFrame) -> None:
+        """Validate that source column exists and is numeric"""
+        if self.source_column not in data.columns:
+            raise ValueError(f"Column '{self.source_column}' not found in data")
+        
+        if not pd.api.types.is_numeric_dtype(data[self.source_column]):
+            raise ValueError(f"Column '{self.source_column}' is not numeric")
+
+
+class AbsTransformation(Transformation):
+    """Transformation for absolute value calculation"""
+    
+    def __init__(self, source_column: str):
+        super().__init__(source_column, "abs")
+    
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply absolute value transformation"""
+        self.validate_column(data)
+        
+        result_data = data.copy()
+        result_data[self.result_column] = np.abs(data[self.source_column])
+        
+        return result_data
+    
+    def get_description(self) -> str:
+        """Get transformation description"""
+        return f"abs({self.source_column}) → {self.result_column}"
+
+
+class DiffTransformation(Transformation):
+    """Transformation for difference calculation"""
+    
+    def __init__(self, source_column: str, order: int = 1):
+        self.order = max(1, int(order))  # Ensure positive integer
+        super().__init__(source_column, f"diff{self.order}")
+    
+    def apply(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Apply difference transformation"""
+        self.validate_column(data)
+        
+        result_data = data.copy()
+        
+        # Calculate difference
+        diff_values = np.diff(data[self.source_column].values, n=self.order)
+        
+        # Pad with NaN to maintain original length
+        padded_diff = np.full(len(data), np.nan)
+        padded_diff[self.order:] = diff_values
+        
+        result_data[self.result_column] = padded_diff
+        
+        return result_data
+    
+    def get_description(self) -> str:
+        """Get transformation description"""
+        if self.order == 1:
+            return f"diff({self.source_column}) → {self.result_column}"
+        else:
+            return f"diff{self.order}({self.source_column}) → {self.result_column}"
 
 
 class Filter(ABC):
@@ -163,14 +244,18 @@ class FilterManager:
 
 
 class DataProcessor:
-    """Main data processor class with filtering capabilities"""
+    """Main data processor class with filtering and transformation capabilities"""
     
     def __init__(self):
         self.filter_manager = FilterManager()
+        self.transformations: Dict[str, Transformation] = {}
+        self.transformed_data: Optional[pd.DataFrame] = None
     
     def set_data(self, data: pd.DataFrame) -> None:
         """Set data for processing"""
         self.filter_manager.set_data(data)
+        self.transformations.clear()
+        self.transformed_data = data.copy()
     
     def add_value_filter(self, column: str, value: Union[str, float, int]) -> None:
         """Add value filter"""
@@ -193,6 +278,76 @@ class DataProcessor:
     def get_processed_data(self) -> Optional[pd.DataFrame]:
         """Get processed (filtered) data"""
         return self.filter_manager.get_filtered_data()
+    
+    def add_abs_transformation(self, column: str) -> str:
+        """Add absolute value transformation"""
+        if self.transformed_data is None:
+            raise ValueError("No data loaded")
+        
+        transformation = AbsTransformation(column)
+        self.transformed_data = transformation.apply(self.transformed_data)
+        self.transformations[transformation.result_column] = transformation
+        
+        # Update filter manager with new data
+        self.filter_manager.set_data(self.transformed_data)
+        
+        return transformation.result_column
+    
+    def add_diff_transformation(self, column: str, order: int = 1) -> str:
+        """Add difference transformation"""
+        if self.transformed_data is None:
+            raise ValueError("No data loaded")
+        
+        transformation = DiffTransformation(column, order)
+        self.transformed_data = transformation.apply(self.transformed_data)
+        self.transformations[transformation.result_column] = transformation
+        
+        # Update filter manager with new data
+        self.filter_manager.set_data(self.transformed_data)
+        
+        return transformation.result_column
+    
+    def remove_transformation(self, result_column: str) -> None:
+        """Remove a transformation by result column name"""
+        if result_column in self.transformations:
+            del self.transformations[result_column]
+            self._rebuild_transformed_data()
+    
+    def clear_all_transformations(self) -> None:
+        """Clear all transformations"""
+        self.transformations.clear()
+        self._rebuild_transformed_data()
+    
+    def _rebuild_transformed_data(self) -> None:
+        """Rebuild transformed data from original data and active transformations"""
+        if self.filter_manager.original_data is None:
+            return
+        
+        # Start with original data
+        self.transformed_data = self.filter_manager.original_data.copy()
+        
+        # Apply all transformations
+        for transformation in self.transformations.values():
+            self.transformed_data = transformation.apply(self.transformed_data)
+        
+        # Update filter manager with transformed data
+        self.filter_manager.set_data(self.transformed_data)
+    
+    def get_transformation_info(self) -> Dict[str, Any]:
+        """Get transformation information"""
+        return {
+            'transformations': [
+                {
+                    'result_column': result_column,
+                    'description': transformation.get_description(),
+                    'source_column': transformation.source_column,
+                    'type': transformation.name
+                }
+                for result_column, transformation in self.transformations.items()
+            ],
+            'has_transformations': len(self.transformations) > 0,
+            'available_columns': list(self.transformed_data.columns) if self.transformed_data is not None else []
+        }
     
     def get_filter_info(self) -> Dict[str, Any]:
         """Get comprehensive filter information"""
